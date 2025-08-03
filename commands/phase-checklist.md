@@ -1,64 +1,80 @@
 # Command: /phase-checklist <phase-number>
 
-**Goal:** Generate a detailed checklist for a specific phase based on the implementation plan.
+**Goal:** Generate a detailed, context-aware checklist for a specific phase by parsing the implementation plan and providing actionable guidance.
 
 ---
 
-## ⚠️ **IMPORTANT: YOUR TASK AS THE AI AGENT**
+## 🔴 **CRITICAL: MANDATORY EXECUTION FLOW**
 
-Your task is to **GENERATE A PHASE CHECKLIST AND SAVE IT TO A FILE**. Do not execute the tasks in the checklist.
+**THIS COMMAND MUST FOLLOW THIS EXACT SEQUENCE:**
+1.  You MUST parse the phase number from the command arguments.
+2.  You MUST read `PROJECT_STATUS.md` to identify the current initiative path.
+3.  You MUST read the corresponding `<path>/implementation.md` file.
+4.  You MUST extract the **Goal**, **Deliverable**, **Key Tasks**, **Key Modules & APIs**, and **Potential Gotchas** for the specified phase number.
+5.  You MUST use this extracted information to populate the new, enhanced checklist template.
+6.  You MUST save the generated checklist to `<path>/phase_<n>_checklist.md`.
+7.  You MUST present the saved file path and its full content to the user.
 
-Your process is:
-1. **Parse Phase Number:** Extract the phase number from the command (e.g., `/phase-checklist 1` → phase 1)
-2. **Read Context:**
-   - Read `PROJECT_STATUS.md` to get current initiative path
-   - Read `<path>/implementation.md` to understand the phase details
-3. **Generate Detailed Checklist:** Break down the phase into specific, actionable tasks
-4. **Save File:** Save to `<path>/phase_<n>_checklist.md`
-5. **Present Results:** Show the saved file path and contents
-
----
-
-## 📋 **PHASE CHECKLIST GENERATION STRATEGY**
-
-### For Each Phase Type:
-
-#### Implementation Phases (1, 2, etc.)
-- Break high-level tasks into specific code changes
-- Include file paths and function names
-- Add test cases for each feature
-- Include verification steps
-
-#### Final Phase (Validation & Documentation)
-- List specific tests to run
-- Document files to update
-- Include integration verification
-- Add archival steps
-
-### Task Granularity Guidelines:
-- Each task: 15-60 minutes of work
-- Total tasks per phase: 8-20 tasks
-- Group related tasks into sections
-
-### Task Description Format:
-```markdown
-- [ ] **X.Y - <Action verb> <specific item>**
-  - **File:** `<exact/path/to/file.py>`
-  - **Details:** <What exactly to do>
-  - **Verify:** <How to check it's done>
-```
+**DO NOT:**
+-   ❌ Generate a generic checklist. You must use the specific context from `implementation.md`.
+-   ❌ Leave the "Critical Context" section empty. If the `implementation.md` is missing this information, you must report an error.
+-   ❌ Execute any of the tasks in the checklist you generate. Your role is to create the plan, not execute it.
 
 ---
 
-## 📝 **DETAILED CHECKLIST TEMPLATE**
+## 🤖 **CONTEXT: YOU ARE CLAUDE CODE**
 
+You are Claude Code, an autonomous command-line tool. You will execute the file operations described below to create a detailed and context-aware checklist for the user or another AI agent to follow.
+
+---
+
+## 📋 **YOUR EXECUTION WORKFLOW**
+
+### Step 1: Parse Arguments and Read Context
+-   Parse the `<phase-number>` from the command.
+-   Read `PROJECT_STATUS.md` to get the current initiative path.
+-   Read `<path>/implementation.md`.
+
+### Step 2: Extract Phase-Specific Information
+-   Using a robust parsing method (like `awk` or a Python script), extract all the relevant sections for the specified phase from `implementation.md`:
+    -   Phase Name, Goal, Deliverable
+    -   The list of "Key Tasks"
+    -   The content of "Key Modules & APIs to Touch"
+    -   The content of "Potential Gotchas & Critical Conventions"
+
+### Step 3: Generate and Save the Checklist
+-   Generate the full content for the checklist using the "ENHANCED CHECKLIST TEMPLATE" below.
+-   Populate all sections with the information you extracted in Step 2.
+-   For the main task list, create a row for each "Key Task" you extracted and use the context to generate specific, actionable prompts in the "How/Why & API Guidance" column.
+-   Save the final content to `<initiative-path>/phase_<phase-number>_checklist.md`.
+
+### Step 4: Confirm and Present
+-   Announce that the detailed checklist has been created.
+-   Present the full content of the generated checklist file for the user's review.
+
+---
+
+## 템플릿 & 가이드라인 (Templates & Guidelines)
+
+### **ENHANCED CHECKLIST TEMPLATE (for non-Gemini `/phase-checklist`)**
+*This is the template for the content of `phase_<n>_checklist.md`.*
 ```markdown
 # Phase <N>: <Phase Name> Checklist
 
 **Initiative:** <Initiative name from plan>
 **Created:** <Today's date YYYY-MM-DD>
-**Phase Goal:** <Copy from implementation plan>
-**Deliverable:** <Copy from implementation plan>
+**Phase Goal:** <Extracted from implementation.md>
+**Deliverable:** <Extracted from implementation.md>
+
+---
+## 🧠 **Critical Context for This Phase**
+
+**Key Modules & APIs Involved:**
+<*Content from "Key Modules & APIs" in implementation.md is inserted here*>
+
+**⚠️ Potential Gotchas & Conventions to Respect:**
+<*Content from "Potential Gotchas" in implementation.md is inserted here*>
+---
 
 ## ✅ Task List
 
@@ -71,15 +87,19 @@ Your process is:
 
 | ID  | Task Description                                   | State | How/Why & API Guidance                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       -
 | :-- | :------------------------------------------------- | :---- | :-------------------------------------------------
-| **Section 0: Preparation & Context Priming**
-| 0.A | **Review Key Documents & APIs**                    | `[ ]` | **Why:** To load the necessary context and technical specifications before coding. <br> **Docs:** `docs/refactor/eval_enhancements/plan_eval_enhancements.md`, `docs/DEVELOPER_GUIDE.md` Section 5. <br> **APIs:** `skimage.metrics.structural_similarity`, `numpy.linalg.lstsq`, `ptycho.evaluation.frc50`.
-| 0.B | **Identify Target Files for Modification**| `[ ]` | **Why:** To have a clear list of files that will be touched during this phase. <br> **Files:** `ptycho/evaluation.py` (Modify - core function updates), `ptycho/evaluation.py` (Add new functions for plane fitting).
-| **Section 1: SSIM Integration**
-| 1.A | **Add SSIM import and data range calculation**                   | `[ ]` | **Why:** SSIM requires proper data range specification for accurate calculation. <br> **How:** Add `from skimage.metrics import structural_similarity` import. Create helper function to calculate data range: `data_range = arr.max() - arr.min()`. <br> **File:** `ptycho/evaluation.py`.
+| **Section 0: Preparation & Analysis**
+| 0.A | **Review Critical Context**                        | `[ ]` | **Why:** To prevent common errors by understanding the specific challenges of this phase. <br> **Action:** Carefully read the "Critical Context for This Phase" section above. Acknowledge that you understand the potential gotchas before proceeding.
+| 0.B | **Analyze Source Code**                            | `[ ]` | **Why:** To understand the existing code before modification. <br> **Action:** Open and read the files listed in the "Key Modules & APIs" section. Pay close attention to the function signatures, data flow, and any existing comments.
+| **Section 1: Implementation Tasks**
+| 1.A | **Implement: <Task 1 from implementation.md>**     | `[ ]` | **Why:** [Agent fills in based on goal] <br> **File:** `[Agent fills in based on context]` <br> **API Guidance:** **[Agent: Based on your analysis of the source code and the gotchas, what is the exact code snippet or API call needed here? Be specific.]**
+| 1.B | **Implement: <Task 2 from implementation.md>**     | `[ ]` | **Why:** [Agent fills in based on goal] <br> **File:** `[Agent fills in based on context]` <br> **API Guidance:** **[Agent: Based on your analysis of the source code and the gotchas, what is the exact code snippet or API call needed here? Be specific.]**
 | ... | ...                                                | ...   | ...
-| **Section 5: Finalization**
-| 5.A | **Code Formatting & Linting**                      | `[ ]` | **Why:** To maintain code quality and project standards. <br> **How:** Review code for consistent indentation, remove any debug prints, ensure proper docstrings for new functions.
-| 5.B | **Update Function Docstring**                           | `[ ]` | **Why:** Document new parameters and functionality. <br> **How:** Update `eval_reconstruction` docstring to document `phase_align_method` parameter and new SSIM return values. Add docstrings for any new helper functions.
+| **Section 2: Testing & Validation**
+| 2.A | **Write Unit/Integration Tests**                   | `[ ]` | **Why:** To verify the new implementation is correct and does not introduce regressions. <br> **File:** `[Agent: Suggest a new or existing test file]` <br> **Guidance:** Write tests that specifically cover the changes made in this phase. Refer to the "Success Test" for this phase in `implementation.md`.
+| 2.B | **Run All Tests**                                  | `[ ]` | **Why:** To confirm the changes are working and have not broken other parts of the application. <br> **Command:** `python -m unittest discover -s tests -p "test_*.py"` <br> **Verify:** All tests must pass.
+| **Section 3: Finalization**
+| 3.A | **Code Formatting & Linting**                      | `[ ]` | **Why:** To maintain code quality and project standards. <br> **How:** Review code for consistent indentation, remove any debug prints, ensure proper docstrings for new functions.
+| 3.B | **Update Function Docstrings**                     | `[ ]` | **Why:** To document new parameters and functionality. <br> **How:** Update docstrings for any modified functions to reflect the changes made in this phase.
 
 ---
 
