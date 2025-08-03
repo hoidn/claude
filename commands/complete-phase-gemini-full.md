@@ -16,16 +16,15 @@
 **YOUR ROLE IS AN AUTONOMOUS ORCHESTRATOR AND FILE MANAGER. YOU MAKE NO DECISIONS.**
 1.  You MUST identify the current phase and its success criteria from the project files.
 2.  You MUST run `repomix` to create a complete, fresh snapshot of the codebase, including the recent changes.
-3.  You MUST build a structured prompt file (`verify-prompt.md`) using the XML format.
-4.  You MUST execute `gemini -p "@verify-prompt.md"` to delegate the entire verification process.
+3.  You MUST build a structured prompt file (`tmp/verify-prompt.md`) using the XML format.
+4.  You MUST execute `gemini -p "@tmp/verify-prompt.md"` to delegate the entire verification process.
 5.  You MUST parse Gemini's verdict from the response.
 6.  You MUST execute the correct file management actions (advance phase or create fix-list) based **only** on Gemini's verdict.
 
 **DO NOT:**
 -   ❌ Make any judgment calls on whether a phase is complete.
 -   ❌ Modify, interpret, or enhance Gemini's analysis.
--   ❌ Skip any step. The workflow is non-negotiable.
--   ❌ Proceed to the next phase if Gemini's verdict is anything other than `COMPLETE`.
+-   ❌ Skip any step.
 
 ---
 
@@ -33,13 +32,11 @@
 
 ### Step 1: Prepare Context from Project State
 
-Parse arguments and load all necessary context from the project's planning and status documents.
-
 ```bash
 # Parse arguments
 INITIATIVE_PATH="$1"
 IMPLEMENTATION_PLAN_PATH="$INITIATIVE_PATH/implementation.md"
-PROJECT_STATUS_PATH="PROJECT_STATUS.md" # Assuming it's in the root
+PROJECT_STATUS_PATH="PROJECT_STATUS.md"
 
 # Verify required files exist
 if [ ! -f "$IMPLEMENTATION_PLAN_PATH" ] || [ ! -f "$PROJECT_STATUS_PATH" ]; then
@@ -47,51 +44,43 @@ if [ ! -f "$IMPLEMENTATION_PLAN_PATH" ] || [ ! -f "$PROJECT_STATUS_PATH" ]; then
     exit 1
 fi
 
-# Extract current phase number and info from project files
-# This requires a robust parsing method (e.g., awk, sed, or a script)
+# Extract current phase number and info
 CURRENT_PHASE_NUMBER=$(grep 'Current Phase:' "$PROJECT_STATUS_PATH" | sed 's/Current Phase: Phase \([0-9]*\).*/\1/')
-CURRENT_PHASE_INFO=$(awk "/## Phase $CURRENT_PHASE_NUMBER/{f=1;p=1} /## Phase/{if(!p){f=0}; p=0} f" "$IMPLEMENTATION_PLAN_PATH")
-# Also extract the checklist for the current phase
-CURRENT_PHASE_CHECKLIST=$(cat "$INITIATIVE_PATH/phase_${CURRENT_PHASE_NUMBER}_checklist.md")
+CURRENT_PHASE_INFO=$(awk "/### \*\*Phase $CURRENT_PHASE_NUMBER:/{f=1} f && /^### \*\*Phase|## 📊 PROGRESS TRACKING/{if (!/Phase $CURRENT_PHASE_NUMBER/) f=0} f" "$IMPLEMENTATION_PLAN_PATH")
+CURRENT_PHASE_CHECKLIST_PATH="$INITIATIVE_PATH/phase_${CURRENT_PHASE_NUMBER}_checklist.md"
+CURRENT_PHASE_CHECKLIST=$(cat "$CURRENT_PHASE_CHECKLIST_PATH")
 
 if [ -z "$CURRENT_PHASE_NUMBER" ] || [ -z "$CURRENT_PHASE_INFO" ]; then
     echo "❌ ERROR: Could not determine current phase from project files."
     exit 1
 fi
-
 echo "✅ Loaded context for current Phase $CURRENT_PHASE_NUMBER."
 ```
 
 ### Step 2: Aggregate Codebase Context with Repomix
 
-Create a comprehensive snapshot of the project's current state, including the newly implemented changes.
-
 ```bash
 # Use repomix for a complete, single-file context snapshot.
 npx repomix@latest . \
   --include "**/*.{js,py,md,sh,json,c,h,log,yml,toml}" \
-  --ignore "build/**,node_modules/**,dist/**,*.lock"
+  --ignore "build/**,node_modules/**,dist/**,*.lock,tmp/**"
 
-# Verify that the context was created successfully.
 if [ ! -s ./repomix-output.xml ]; then
     echo "❌ ERROR: Repomix failed to generate the codebase context. Aborting."
     exit 1
 fi
-
 echo "✅ Codebase context aggregated into repomix-output.xml."
 ```
 
 ### Step 3: MANDATORY - Build the Prompt File
 
-You will now build the prompt for Gemini in a file using the structured XML pattern.
-
-#### Step 3.1: Create Base Prompt File
 ```bash
 # Clean start for the prompt file
-rm -f ./verify-prompt.md 2>/dev/null
+mkdir -p ./tmp
+rm -f ./tmp/verify-prompt.md 2>/dev/null
 
-# Create the structured prompt with placeholders using the v3.0 XML pattern
-cat > ./verify-prompt.md << 'PROMPT'
+# Create the structured prompt
+cat > ./tmp/verify-prompt.md << 'PROMPT'
 <task>
 You are an automated, rigorous Quality Assurance and Verification system. Your task is to perform a complete verification of a software development phase and determine if it is complete. You must be strict and objective.
 
@@ -100,10 +89,10 @@ You are an automated, rigorous Quality Assurance and Verification system. Your t
 Analyze the provided context: `<phase_info>`, `<phase_checklist>`, and the full `<codebase_context>`.
 </1>
 <2>
-Perform all verification checks as detailed in the `<output_format>` section. This includes implementation review, test analysis, integration checks, and quality checks.
+Perform all verification checks as detailed in the `<output_format>` section. This includes implementation review, test analysis, and quality checks.
 </2>
 <3>
-Execute the success test and compare the actual output to the expected output.
+Execute the success test command defined in the `<phase_info>` and compare the actual output to the expected outcome.
 </3>
 <4>
 Provide a definitive, overall verdict: `COMPLETE` or `INCOMPLETE`. This is the most critical part of your output.
@@ -138,53 +127,61 @@ Do not include any conversational text before or after your analysis.
 OVERALL_VERDICT: [COMPLETE|INCOMPLETE]
 
 ## 1. IMPLEMENTATION VERIFICATION
-...
-[The entire detailed Markdown template from the original prompt goes here, verbatim.]
-...
-## 8. GEMINI VERIFICATION SUMMARY
-...
+- **Checklist Completion:** [Analyze the checklist. Are all items marked as done? Report status.]
+- **Code Review:** [Review the code changes relevant to this phase. Do they correctly implement the goals? Are there any obvious bugs, anti-patterns, or style violations?]
+- **Deliverable Check:** [Does the deliverable specified in the phase_info exist and is it correct?]
+
+## 2. TEST VERIFICATION
+- **Test Execution:** [Simulate running the `Success Test` command from the phase_info. Report the expected outcome.]
+- **Test Coverage:** [Analyze the tests. Do they adequately cover the new or modified code?]
+- **Regression Check:** [Does the implementation introduce any obvious regressions or break existing functionality described in the codebase context?]
+
+## 3. QUALITY & DOCUMENTATION
+- **Code Quality:** [Assess the quality of the new code. Is it clean, readable, and maintainable?]
+- **Documentation:** [Are docstrings, comments, and any relevant external documentation updated?]
+
+## 4. BLOCKERS (if INCOMPLETE)
+- **Blocker 1:** [A specific, actionable reason why the phase is not complete.]
+- **Blocker 2:** [Another specific, actionable reason.]
+
+## 5. NEXT PHASE PREPARATION (if COMPLETE)
+- **Next Phase Goal:** [Based on the implementation plan, what is the goal of the next phase?]
+- **Key Modules for Next Phase:** [Identify files/modules that will be important for the next phase.]
+- **Potential Challenges:** [Anticipate any risks or challenges for the next phase.]
+
+## 6. GEMINI VERIFICATION SUMMARY
+- **Overall Assessment:** [A brief summary of your findings.]
+- **Confidence Score:** [HIGH | MEDIUM | LOW]
+
 END OF VERIFICATION
 </output_format>
 </task>
 PROMPT
-```
 
-#### Step 3.2: Append Dynamic Context to the Prompt File
-```bash
-# Inject all context into the prompt file.
-# Using temp files handles multi-line variables and special characters safely.
+# Inject the dynamic context
 echo "$CURRENT_PHASE_INFO" > ./tmp/phase_info.txt
 echo "$CURRENT_PHASE_CHECKLIST" > ./tmp/phase_checklist.txt
+sed -i.bak -e '/\[Placeholder for the current phase info from implementation.md\]/r ./tmp/phase_info.txt' -e '//d' ./tmp/verify-prompt.md
+sed -i.bak -e '/\[Placeholder for the current phase.s checklist.md\]/r ./tmp/phase_checklist.txt' -e '//d' ./tmp/verify-prompt.md
 
-sed -i.bak -e '/\[Placeholder for the current phase info from implementation.md\]/r ./tmp/phase_info.txt' -e '//d' ./verify-prompt.md
-sed -i.bak -e '/\[Placeholder for the current phase.s checklist.md\]/r ./tmp/phase_checklist.txt' -e '//d' ./verify-prompt.md
+echo -e "\n<codebase_context>" >> ./tmp/verify-prompt.md
+cat ./repomix-output.xml >> ./tmp/verify-prompt.md
+echo -e "\n</codebase_context>" >> ./tmp/verify-prompt.md
 
-# Append the codebase context
-echo -e "\n<codebase_context>" >> ./verify-prompt.md
-cat ./repomix-output.xml >> ./verify-prompt.md
-echo -e "\n</codebase_context>" >> ./verify-prompt.md
-
-echo "✅ Successfully built structured prompt file: ./verify-prompt.md"
+echo "✅ Successfully built structured prompt file: ./tmp/verify-prompt.md"
 ```
 
 ### Step 4: MANDATORY - Execute Gemini Verification
 
-You MUST now execute Gemini using the single, clean, and verifiable prompt file.
-
 ```bash
 # Execute Gemini with the fully-formed prompt file
-gemini -p "@./verify-prompt.md"
+GEMINI_RESPONSE=$(gemini -p "@./tmp/verify-prompt.md")
 ```
 
 ### Step 5: Process Gemini's Verdict and Manage Files
 
-Your final role: parse Gemini's verdict and execute the corresponding file operations.
-
 ```bash
-# [You will receive Gemini's verification report as a response from the command above]
-# For this example, we'll assume the response is captured into $GEMINI_RESPONSE.
-
-# Parse the verdict from the first line of the response. This is reliable.
+# Parse the verdict from the first line of the response.
 VERDICT=$(echo "$GEMINI_RESPONSE" | grep '^OVERALL_VERDICT: ' | sed 's/^OVERALL_VERDICT: //')
 REPORT_CONTENT=$(echo "$GEMINI_RESPONSE" | sed '1d') # Get the rest of the content
 
@@ -193,14 +190,10 @@ if [ "$VERDICT" == "COMPLETE" ]; then
     echo "$REPORT_CONTENT" # Display the full successful report
 
     # Update implementation.md and PROJECT_STATUS.md
-    # (Logic to mark phase complete and update status would go here)
     echo "Updating project tracking files..."
-
-    # Save next phase prep if it exists
-    # (Logic to parse "NEXT PHASE PREPARATION" section and save to phase_<n+1>_prep.md)
+    # (Logic to mark phase complete and update status would go here)
 
     # Check if this was the final phase
-    # (Logic to check implementation.md for more phases)
     # If final, archive the project.
     # If not final, announce next step.
     echo "Next step: Run \`/phase-checklist-gemini-full $((CURRENT_PHASE_NUMBER + 1)) $INITIATIVE_PATH\` to generate the detailed checklist for the next phase."
@@ -209,7 +202,7 @@ elif [ "$VERDICT" == "INCOMPLETE" ]; then
     echo "❌ Phase $CURRENT_PHASE_NUMBER verification FAILED."
     
     # Extract and save the list of blockers
-    BLOCKERS=$(echo "$REPORT_CONTENT" | awk '/## 1. IMPLEMENTATION VERIFICATION/,/## 2. TEST VERIFICATION/' | grep 'BLOCKER')
+    BLOCKERS=$(echo "$REPORT_CONTENT" | awk '/## 4. BLOCKERS/,/## 5. NEXT PHASE PREPARATION/' | grep 'Blocker')
     FIX_LIST_PATH="$INITIATIVE_PATH/phase_${CURRENT_PHASE_NUMBER}_fixes.md"
     echo "# Phase $CURRENT_PHASE_NUMBER Fix-List (Blockers Only)" > "$FIX_LIST_PATH"
     echo "Generated on $(date)" >> "$FIX_LIST_PATH"

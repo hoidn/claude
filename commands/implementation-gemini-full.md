@@ -15,8 +15,8 @@
 **YOUR ROLE IS AN AUTONOMOUS ORCHESTRATOR AND FILE MANAGER.**
 1.  You MUST parse the R&D plan from the specified `<initiative-path>/plan.md`.
 2.  You MUST run `repomix` to create a complete, fresh snapshot of the codebase context.
-3.  You MUST build a structured prompt file (`impl-prompt.md`) using the XML format.
-4.  You MUST execute `gemini -p "@impl-prompt.md"` to delegate the implementation plan generation.
+3.  You MUST build a structured prompt file (`tmp/impl-prompt.md`) using the XML format.
+4.  You MUST execute `gemini -p "@tmp/impl-prompt.md"` to delegate the implementation plan generation.
 5.  You MUST save Gemini's response **exactly as provided** to the correct output file.
 6.  You MUST update `PROJECT_STATUS.md` with the new phase information.
 
@@ -30,8 +30,6 @@
 ## 🤖 **YOUR EXECUTION WORKFLOW**
 
 ### Step 1: Prepare Context from the R&D Plan
-
-Parse arguments and load the high-level R&D plan that will guide this implementation.
 
 ```bash
 # Parse arguments
@@ -47,54 +45,48 @@ fi
 
 # Read the entire content of the R&D plan.
 RD_PLAN_CONTENT=$(cat "$RD_PLAN_PATH")
-
 echo "✅ Successfully loaded R&D plan from '$RD_PLAN_PATH'."
 ```
 
 ### Step 2: Aggregate Codebase Context with Repomix
 
-Create a comprehensive and reliable context snapshot of the entire project for Gemini.
-
 ```bash
 # Use repomix for a complete, single-file context snapshot.
 npx repomix@latest . \
   --include "**/*.{js,py,md,sh,json,c,h,log,yml,toml}" \
-  --ignore "build/**,node_modules/**,dist/**,*.lock"
+  --ignore "build/**,node_modules/**,dist/**,*.lock,tmp/**"
 
 # Verify that the context was created successfully.
 if [ ! -s ./repomix-output.xml ]; then
     echo "❌ ERROR: Repomix failed to generate the codebase context. Aborting."
     exit 1
 fi
-
 echo "✅ Codebase context aggregated into repomix-output.xml."
 ```
 
 ### Step 3: MANDATORY - Build the Prompt File
 
-You will now build the prompt for Gemini in a file using the structured XML pattern.
-
-#### Step 3.1: Create Base Prompt File
 ```bash
 # Clean start for the prompt file
-rm -f ./impl-prompt.md 2>/dev/null
+mkdir -p ./tmp
+rm -f ./tmp/impl-prompt.md 2>/dev/null
 
-# Create the structured prompt with placeholders using the v3.0 XML pattern
-cat > ./impl-prompt.md << 'PROMPT'
+# Create the structured prompt with placeholders
+cat > ./tmp/impl-prompt.md << 'PROMPT'
 <task>
 You are an expert Lead Software Engineer. Your task is to create a complete, phased implementation plan based on a high-level R&D plan.
 
-Your implementation plan must be deeply informed by an analysis of the provided codebase. You will break the project down into logical, testable phases, and for each phase, you will define the goals, tasks, and success criteria.
+Your implementation plan must be deeply informed by an analysis of the provided codebase. You will break the project down into logical, testable phases, and for each phase, you will define the goals, tasks, and potential risks.
 
 <steps>
 <1>
 Analyze the `<rd_plan_context>` to understand the project's overall objectives, scope, and technical specifications.
 </1>
 <2>
-Thoroughly analyze the entire `<codebase_context>` to identify natural boundaries for phasing, dependencies, existing code patterns, and potential risks.
+Thoroughly analyze the entire `<codebase_context>` to identify natural boundaries for phasing, dependencies, existing code patterns, and potential risks. This analysis is critical for creating a safe and effective plan.
 </2>
 <3>
-Generate the complete, phased implementation plan. The plan must strictly adhere to the format specified in `<output_format>`. All sections must be filled out based on your analysis.
+Generate the complete, phased implementation plan. The plan must strictly adhere to the format specified in `<output_format>`. All sections, especially "Key Modules & APIs" and "Potential Gotchas," must be filled out based on your analysis.
 </3>
 </steps>
 
@@ -115,49 +107,105 @@ Your entire response must be a single Markdown block containing the implementati
 <!-- DO NOT MISTAKE THIS FOR A TEMPLATE. THIS IS THE OFFICIAL SOURCE OF TRUTH FOR THE PROJECT'S PHASED PLAN. -->
 
 # Phased Implementation Plan
-...
-[The entire detailed Markdown template from the original prompt goes here, verbatim. It's an excellent template.]
-...
-## 📊 **GEMINI ANALYSIS METADATA**
-...
-END OF PLAN
+
+**Project:** [Name from R&D Plan]
+**Initiative Path:** `[Initiative Path]`
+
+---
+## Git Workflow Information
+**Feature Branch:** [Value of current git branch]
+**Baseline Branch:** [Value of baseline branch from PROJECT_STATUS.md]
+**Baseline Commit Hash:** [Commit hash of baseline branch]
+**Last Phase Commit Hash:** [Commit hash of baseline branch]
+---
+
+**Created:** [Current Date, e.g., 2025-08-03]
+**Core Technologies:** [List of technologies from your analysis]
+
+---
+
+## 📄 **DOCUMENT HIERARCHY**
+... (Standard hierarchy section) ...
+
+---
+
+## 🎯 **PHASE-BASED IMPLEMENTATION**
+
+**Overall Goal:** [Synthesize a one-sentence summary from the R&D Plan's objective.]
+
+**Total Estimated Duration:** [Sum of phase estimates, e.g., 3 days]
+
+---
+
+## 📋 **IMPLEMENTATION PHASES**
+
+### **Phase 1: [Descriptive Phase Name]**
+
+**Goal:** [Clear, concise goal for this phase.]
+**Deliverable:** [A specific, verifiable artifact, e.g., "A new module `src/core/new_feature.py` with passing unit tests."]
+**Estimated Duration:** [e.g., 1 day]
+
+**Key Modules & APIs to Touch:**
+- `[path/to/module1.py]`: [Brief reason]
+- `[path/to/module2.py]`: [Brief reason]
+
+**Potential Gotchas & Critical Conventions:**
+- [A specific, code-aware warning, e.g., "The `offsets_f` tensor in `raw_data.py` stores coordinates in `[y, x]` order."]
+- [Another warning, e.g., "The `hh.translate` function expects `[dx, dy]` order. A coordinate swap will be necessary."]
+
+**Implementation Checklist:** `phase_1_checklist.md`
+**Success Test:** [A specific command to run to verify completion, e.g., `pytest tests/core/test_new_feature.py` completes with 100% pass rate.]
+
+---
+
+### **Phase 2: [Descriptive Phase Name]**
+... (Repeat for all necessary phases) ...
+
+---
+
+### **Final Phase: Validation & Documentation**
+... (Standard final phase section) ...
+
+---
+
+## 📊 **PROGRESS TRACKING**
+... (Standard progress tracking section) ...
+
+---
+
+## 🚀 **GETTING STARTED**
+... (Standard getting started section) ...
+
+---
+
+## ⚠️ **RISK MITIGATION**
+... (Standard risk mitigation section) ...
+
 </output_format>
 </task>
 PROMPT
-```
 
-#### Step 3.2: Append Dynamic Context to the Prompt File
-```bash
-# Inject the R&D plan and the repomix context into the prompt file.
-# Using a temp file for the plan handles multi-line variables and special characters safely.
+# Inject the dynamic context
 echo "$RD_PLAN_CONTENT" > ./tmp/rd_plan.txt
-sed -i.bak -e '/\[Placeholder for the content of plan.md\]/r ./tmp/rd_plan.txt' -e '//d' ./impl-prompt.md
+sed -i.bak -e '/\[Placeholder for the content of plan.md\]/r ./tmp/rd_plan.txt' -e '//d' ./tmp/impl-prompt.md
 
-# Append the codebase context
-echo -e "\n<codebase_context>" >> ./impl-prompt.md
-cat ./repomix-output.xml >> ./impl-prompt.md
-echo -e "\n</codebase_context>" >> ./impl-prompt.md
+echo -e "\n<codebase_context>" >> ./tmp/impl-prompt.md
+cat ./repomix-output.xml >> ./tmp/impl-prompt.md
+echo -e "\n</codebase_context>" >> ./tmp/impl-prompt.md
 
-echo "✅ Successfully built structured prompt file: ./impl-prompt.md"
+echo "✅ Successfully built structured prompt file: ./tmp/impl-prompt.md"
 ```
 
 ### Step 4: MANDATORY - Execute Gemini Analysis
 
-You MUST now execute Gemini using the single, clean, and verifiable prompt file.
-
 ```bash
 # Execute Gemini with the fully-formed prompt file
-gemini -p "@./impl-prompt.md"
+GEMINI_RESPONSE=$(gemini -p "@./tmp/impl-prompt.md")
 ```
 
 ### Step 5: Save Implementation Plan and Update Project Status
 
-Your final role: receive the output from your command and save it without modification.
-
 ```bash
-# [You will receive Gemini's implementation plan as a response from the command above]
-# For this example, we'll assume the response is captured into $GEMINI_RESPONSE.
-
 # Define the output path
 OUTPUT_PATH="$INITIATIVE_PATH/implementation.md"
 
@@ -171,8 +219,7 @@ if [ ! -s "$OUTPUT_PATH" ]; then
 fi
 echo "✅ Saved Gemini's implementation plan to: $OUTPUT_PATH"
 
-# Update PROJECT_STATUS.md with details from the new plan
-# (A real implementation would use a script to parse and replace sections)
+# Update PROJECT_STATUS.md
 echo "Updating PROJECT_STATUS.md with new phase information..."
 # (Logic to parse $GEMINI_RESPONSE for phase count, duration, etc., and update PROJECT_STATUS.md would go here)
 echo "✅ Updated PROJECT_STATUS.md"
@@ -182,16 +229,3 @@ echo ""
 echo "Next step: Run \`/phase-checklist-gemini-full 1 $INITIATIVE_PATH\` to have Gemini create the detailed Phase 1 checklist."
 ```
 
----
-
-## ✅ **VERIFICATION CHECKLIST**
-
-Before reporting completion, verify you have performed these steps:
--   [ ] Parsed the initiative path from arguments and loaded `plan.md`.
--   [ ] Successfully ran `repomix` to generate `repomix-output.xml`.
--   [ ] Created `./impl-prompt.md` with the correct XML structure.
--   [ ] Injected all dynamic context (`rd_plan_context`, `codebase_context`) into the prompt file.
--   [ ] **I EXECUTED the `gemini -p "@./impl-prompt.md"` command.** ← MANDATORY
--   [ ] I received Gemini's implementation plan response.
--   [ ] I saved the plan to the correct `implementation.md` file.
--   [ ] I updated `PROJECT_STATUS.md`.
