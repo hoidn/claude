@@ -10,11 +10,11 @@
 
 **Mode 1: Request Review (Default)**
 *   **Trigger:** No `review_phase_N.md` file exists for the current phase.
-*   **Action:** You MUST generate a `review_request_phase_N.md` file containing a `git diff` and then HALT.
+*   **Action:** You MUST generate a `review_request_phase_N.md` file by programmatically executing the provided shell commands, and then HALT.
 
 **Mode 2: Process Review**
 *   **Trigger:** A `review_phase_N.md` file EXISTS for the current phase.
-*   **Action:** You MUST read the review, parse the `VERDICT`, and then either commit the changes (on `ACCEPT`) using the new **safe staging protocol** or report the required fixes (on `REJECT`).
+*   **Action:** You MUST read the review, parse the `VERDICT`, and then either commit the changes (on `ACCEPT`) using the **safe staging protocol** or report the required fixes (on `REJECT`).
 
 **DO NOT:**
 -   ❌ Commit any code without a `VERDICT: ACCEPT` from a review file.
@@ -42,6 +42,7 @@ You are Claude Code, an autonomous agent. You will execute the Git and file comm
 ### **MODE 1: REQUEST REVIEW**
 
 #### Step 1.1: Read State and Generate Diff
+-   Read `PROJECT_STATUS.md` to get the initiative path and phase number.
 -   Read `<path>/implementation.md` to get the `Last Phase Commit Hash`. This is your diff base.
 -   Run the following command to generate the diff.
 
@@ -49,16 +50,86 @@ You are Claude Code, an autonomous agent. You will execute the Git and file comm
 # Ensure a temporary directory exists
 mkdir -p ./tmp
 
+# Extract initiative path and phase number from PROJECT_STATUS.md
+INITIATIVE_PATH=$(grep 'Path:' PROJECT_STATUS.md | awk '{print $2}' | tr -d '`')
+PHASE_NUM=$(grep 'Current Phase:' PROJECT_STATUS.md | sed 's/.*Phase \([0-9]*\).*/\1/')
+IMPL_FILE="$INITIATIVE_PATH/implementation.md"
+
 # Extract the baseline commit hash for the diff
-diff_base=$(grep 'Last Phase Commit Hash:' <path>/implementation.md | awk '{print $4}')
+diff_base=$(grep 'Last Phase Commit Hash:' "$IMPL_FILE" | awk '{print $4}')
 
 # Generate the diff against the baseline hash, excluding .ipynb files
 git diff "${diff_base}"..HEAD -- . ':(exclude)*.ipynb' ':(exclude)**/*.ipynb' > ./tmp/phase_diff.txt
 ```
 
-#### Step 1.2: Generate Review Request File
--   Create a new file: `<path>/review_request_phase_N.md`.
--   Populate it using the "REVIEW REQUEST TEMPLATE" below.
+#### Step 1.2: Generate Review Request File (Programmatically)
+-   **CRITICAL:** You will now build the review request file programmatically using shell commands to avoid inefficiently re-generating large files.
+-   Execute the following commands precisely as written.
+
+```bash
+# Define file paths for clarity
+PHASE_NAME=$(awk -F': ' "/### \\*\\*Phase $PHASE_NUM:/{print \$2}" "$IMPL_FILE" | head -n 1)
+INITIATIVE_NAME=$(grep 'Name:' PROJECT_STATUS.md | sed 's/Name: //')
+REVIEW_FILE="$INITIATIVE_PATH/review_request_phase_$PHASE_NUM.md"
+PLAN_FILE="$INITIATIVE_PATH/plan.md"
+CHECKLIST_FILE="$INITIATIVE_PATH/phase_${PHASE_NUM}_checklist.md"
+DIFF_FILE="./tmp/phase_diff.txt"
+
+# 1. Create the header of the review request file
+{
+    echo "# Review Request: Phase $PHASE_NUM - $PHASE_NAME"
+    echo ""
+    echo "**Initiative:** $INITIATIVE_NAME"
+    echo "**Generated:** $(date '+%Y-%m-%d %H:%M:%S')"
+    echo ""
+    echo "This document contains all necessary information to review the work completed for Phase $PHASE_NUM."
+    echo ""
+    echo "## Instructions for Reviewer"
+    echo ""
+    echo "1.  Analyze the planning documents and the code changes (\`git diff\`) below."
+    echo "2.  Create a new file named \`review_phase_${PHASE_NUM}.md\` in this same directory (\`$INITIATIVE_PATH/\`)."
+    echo "3.  In your review file, you **MUST** provide a clear verdict on a single line: \`VERDICT: ACCEPT\` or \`VERDICT: REJECT\`."
+    echo "4.  If rejecting, you **MUST** provide a list of specific, actionable fixes under a \"Required Fixes\" heading."
+    echo ""
+    echo "---"
+} > "$REVIEW_FILE"
+
+# 2. Programmatically append the planning documents
+{
+    echo "## 1. Planning Documents"
+    echo ""
+    echo "### R&D Plan (\`plan.md\`)"
+    echo '```markdown'
+    cat "$PLAN_FILE"
+    echo '```'
+    echo ""
+    echo "### Implementation Plan (\`implementation.md\`)"
+    echo '```markdown'
+    cat "$IMPL_FILE"
+    echo '```'
+    echo ""
+    echo "### Phase Checklist (\`phase_${PHASE_NUM}_checklist.md\`)"
+    echo '```markdown'
+    cat "$CHECKLIST_FILE"
+    echo '```'
+    echo ""
+} >> "$REVIEW_FILE"
+
+# 3. Programmatically append the git diff
+{
+    echo "---"
+    echo "## 2. Code Changes for This Phase"
+    echo ""
+    echo "**Baseline Commit:** $(grep 'Last Phase Commit Hash:' $IMPL_FILE | awk '{print $4}')"
+    echo "**Current Branch:** $(git rev-parse --abbrev-ref HEAD)"
+    echo ""
+    echo '```diff'
+    cat "$DIFF_FILE"
+    echo '```'
+} >> "$REVIEW_FILE"
+
+echo "✅ Review request file generated programmatically at $REVIEW_FILE"
+```
 
 #### Step 1.3: Notify and Halt
 -   Inform the user that the review request is ready at `<path>/review_request_phase_N.md`.
@@ -93,7 +164,7 @@ You must execute this precise sequence of commands.
 intended_files_str=$(python -c "
 import re
 import sys
-checklist_path = '<path>/phase_N_checklist.md' # Agent must substitute the correct path
+checklist_path = '$INITIATIVE_PATH/phase_${PHASE_NUM}_checklist.md' # Agent must substitute the correct path
 try:
     with open(checklist_path, 'r') as f:
         content = f.read()
@@ -157,8 +228,8 @@ fi
 
 # 5. Commit the Staged Changes
 echo "Committing staged changes..."
-phase_deliverable="<Extract Deliverable from implementation.md for the current phase>"
-git commit -m "Phase N: $phase_deliverable"
+phase_deliverable=$(awk -F': ' "/^**Deliverable**/{print \$2}" "$IMPL_FILE" | head -n 1)
+git commit -m "feat: Phase $PHASE_NUM - $phase_deliverable"
 
 # 6. Verify the commit was successful and capture the new hash
 if [ $? -ne 0 ]; then
@@ -170,74 +241,5 @@ echo "New commit hash is: $new_hash"
 
 # 7. Proceed with State Updates
 #    (Update implementation.md, PROJECT_STATUS.md, etc.)
+#    This part would be another set of sed/awk commands to update the status files.
 ```
-
----
-
-## 템플릿 & 가이드라인 (Templates & Guidelines)
-
-### **REVIEW REQUEST TEMPLATE**
-*This is the content for the agent-generated `review_request_phase_N.md`.*
-```markdown
-# Review Request: Phase <N> - <Phase Name>
-
-**Initiative:** <Initiative Name>
-**Generated:** <YYYY-MM-DD HH:MM:SS>
-
-This document contains all necessary information to review the work completed for Phase <N>.
-
-## Instructions for Reviewer
-
-1.  Analyze the planning documents and the code changes (`git diff`) below.
-2.  Create a new file named `review_phase_N.md` in this same directory (`<path>/`).
-3.  In your review file, you **MUST** provide a clear verdict on a single line: `VERDICT: ACCEPT` or `VERDICT: REJECT`.
-4.  If rejecting, you **MUST** provide a list of specific, actionable fixes under a "Required Fixes" heading.
-
----
-## 1. Planning Documents
-
-### R&D Plan (`plan.md`)
-<The full content of plan.md is embedded here>
-
-### Implementation Plan (`implementation.md`)
-<The full content of implementation.md is embedded here>
-
-### Phase Checklist (`phase_N_checklist.md`)
-<The full content of the current phase_N_checklist.md is embedded here>
-
----
-## 2. Code Changes for This Phase
-
-**Baseline Commit:** `<Last Phase Commit Hash from implementation.md>`
-**Current Branch:** `<current feature branch name>`
-**Changes since last phase:**
-*Note: Jupyter notebook (.ipynb) files are excluded from this diff for clarity*
-
-```diff
-<The full output of the 'git diff' command is embedded here>
-```
-```
-
-### **REVIEW FILE TEMPLATE (for human reviewers)**
-*This is the expected format of the human-created `review_phase_N.md`.*
-```markdown
-# Review: Phase <N> - <Phase Name>
-
-**Reviewer:** <Reviewer's Name>
-**Date:** <YYYY-MM-DD>
-
-## Verdict
-
-**VERDICT: ACCEPT**
-
----
-## Comments
-
-The implementation looks solid. The new module is well-tested and follows project conventions.
-
----
-## Required Fixes (if REJECTED)
-
-*(This section would be empty for an ACCEPT verdict)*
-- **Fix 1:** In `src/module/file.py`, the error handling for `function_x` is incomplete. It must also catch `KeyError`.
-- **Fix 2:** The unit test `tests/test_module.py::test_function_x_edge_case` does not assert the correct exception type.
