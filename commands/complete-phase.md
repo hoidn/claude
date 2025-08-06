@@ -10,7 +10,7 @@
 
 **Mode 1: Request Review (Default)**
 *   **Trigger:** No `review_phase_N.md` file exists for the current phase.
-*   **Action:** You MUST generate a `review_request_phase_N.md` file by programmatically executing the provided shell commands, and then HALT.
+*   **Action:** You MUST identify intended new files from the checklist, stage them, generate a comprehensive `git diff`, and then create the `review_request_phase_N.md` file before HALTING.
 
 **Mode 2: Process Review**
 *   **Trigger:** A `review_phase_N.md` file EXISTS for the current phase.
@@ -18,7 +18,7 @@
 
 **DO NOT:**
 -   ❌ Commit any code without a `VERDICT: ACCEPT` from a review file.
--   ❌ Use `git add -A` or `git add .`. You must use the new, explicit staging logic.
+-   ❌ Use `git add -A` or `git add .` at any point. You must use the explicit, plan-driven staging logic.
 -   ❌ Proceed with a commit if unplanned file changes are detected. You must halt and report the error.
 
 ---
@@ -41,10 +41,9 @@ You are Claude Code, an autonomous agent. You will execute the Git and file comm
 
 ### **MODE 1: REQUEST REVIEW**
 
-#### Step 1.1: Read State and Generate Diff
+#### Step 1.1: Read State and Identify Intended Files
 -   Read `PROJECT_STATUS.md` to get the initiative path and phase number.
--   Read `<path>/implementation.md` to get the `Last Phase Commit Hash`. This is your diff base.
--   Run the following command to generate the diff.
+-   Parse the phase checklist to identify all files that were planned to be created or modified.
 
 ```bash
 # Ensure a temporary directory exists
@@ -54,7 +53,61 @@ mkdir -p ./tmp
 INITIATIVE_PATH=$(grep 'Path:' PROJECT_STATUS.md | awk '{print $2}' | tr -d '`')
 PHASE_NUM=$(grep 'Current Phase:' PROJECT_STATUS.md | sed 's/.*Phase \([0-9]*\).*/\1/')
 IMPL_FILE="$INITIATIVE_PATH/implementation.md"
+CHECKLIST_FILE="$INITIATIVE_PATH/phase_${PHASE_NUM}_checklist.md"
 
+# Identify all files mentioned in the checklist for this phase
+intended_files_str=$(python -c "
+import re
+import sys
+try:
+    with open('$CHECKLIST_FILE', 'r') as f:
+        content = f.read()
+    # Find all file paths enclosed in backticks
+    files = re.findall(r'\\\`([a-zA-Z0-9/._-]+)\\\`', content)
+    valid_files = {f for f in files if '/' in f and '.' in f}
+    print(' '.join(sorted(list(valid_files))))
+except FileNotFoundError:
+    sys.exit(1)
+")
+
+if [ $? -ne 0 ]; then
+    echo "❌ ERROR: Could not parse the phase checklist '$CHECKLIST_FILE' to determine which files to review."
+    exit 1
+fi
+
+read -r -a intended_files <<< "$intended_files_str"
+echo "Plan indicates the following files should be created or modified:"
+printf " - %s\n" "${intended_files[@]}"
+```
+
+#### Step 1.2: Stage Intended *New* Files for Review
+-   Stage only the new files that were part of the plan, so their content appears in the diff.
+
+```bash
+# Get a list of all untracked files
+untracked_files=$(git status --porcelain | grep '^??' | awk '{print $2}')
+
+# Stage only the untracked files that were part of the plan
+for file in $untracked_files; do
+    is_intended=false
+    for intended_file in "${intended_files[@]}"; do
+        if [[ "$file" == "$intended_file" ]]; then
+            is_intended=true
+            break
+        fi
+    done
+
+    if $is_intended; then
+        echo "Staging new file for review diff: $file"
+        git add "$file"
+    fi
+done
+```
+
+#### Step 1.3: Generate Comprehensive Diff
+-   Generate a diff that now includes both modified tracked files and the full content of the newly staged files.
+
+```bash
 # Extract the baseline commit hash for the diff
 diff_base=$(grep 'Last Phase Commit Hash:' "$IMPL_FILE" | awk '{print $4}')
 
@@ -62,9 +115,8 @@ diff_base=$(grep 'Last Phase Commit Hash:' "$IMPL_FILE" | awk '{print $4}')
 git diff "${diff_base}"..HEAD -- . ':(exclude)*.ipynb' ':(exclude)**/*.ipynb' > ./tmp/phase_diff.txt
 ```
 
-#### Step 1.2: Generate Review Request File (Programmatically)
--   **CRITICAL:** You will now build the review request file programmatically using shell commands to avoid inefficiently re-generating large files.
--   Execute the following commands precisely as written.
+#### Step 1.4: Generate Review Request File (Programmatically)
+-   Build the review request file using efficient, programmatic shell commands.
 
 ```bash
 # Define file paths for clarity
@@ -72,7 +124,6 @@ PHASE_NAME=$(awk -F': ' "/### \\*\\*Phase $PHASE_NUM:/{print \$2}" "$IMPL_FILE" 
 INITIATIVE_NAME=$(grep 'Name:' PROJECT_STATUS.md | sed 's/Name: //')
 REVIEW_FILE="$INITIATIVE_PATH/review_request_phase_$PHASE_NUM.md"
 PLAN_FILE="$INITIATIVE_PATH/plan.md"
-CHECKLIST_FILE="$INITIATIVE_PATH/phase_${PHASE_NUM}_checklist.md"
 DIFF_FILE="./tmp/phase_diff.txt"
 
 # 1. Create the header of the review request file
@@ -131,7 +182,7 @@ DIFF_FILE="./tmp/phase_diff.txt"
 echo "✅ Review request file generated programmatically at $REVIEW_FILE"
 ```
 
-#### Step 1.3: Notify and Halt
+#### Step 1.5: Notify and Halt
 -   Inform the user that the review request is ready at `<path>/review_request_phase_N.md`.
 -   **HALT.** Your task for this run is complete.
 
@@ -159,42 +210,31 @@ echo "✅ Review request file generated programmatically at $REVIEW_FILE"
 You must execute this precise sequence of commands.
 
 ```bash
-# 1. Identify Intended Files from the Checklist
-#    This Python script robustly parses all file paths from the checklist.
+# 1. Re-Identify Intended Files from the Checklist for Verification
 intended_files_str=$(python -c "
 import re
 import sys
-checklist_path = '$INITIATIVE_PATH/phase_${PHASE_NUM}_checklist.md' # Agent must substitute the correct path
+checklist_path = '$INITIATIVE_PATH/phase_${PHASE_NUM}_checklist.md'
 try:
     with open(checklist_path, 'r') as f:
         content = f.read()
-    # Find all file paths enclosed in backticks
-    files = re.findall(r'\`([a-zA-Z0-9/._-]+)\`', content)
-    # Filter for valid-looking file paths and print unique ones
+    files = re.findall(r'\\\`([a-zA-Z0-9/._-]+)\\\`', content)
     valid_files = {f for f in files if '/' in f and '.' in f}
     print(' '.join(sorted(list(valid_files))))
 except FileNotFoundError:
     sys.exit(1)
 ")
-
-if [ $? -ne 0 ]; then
-    echo "❌ ERROR: Could not parse the phase checklist to determine which files to commit."
-    exit 1
-fi
-
-# Convert the string of files into a bash array
 read -r -a intended_files <<< "$intended_files_str"
-echo "Plan indicates the following files should be modified:"
+echo "Verifying staged files against the plan:"
 printf " - %s\n" "${intended_files[@]}"
 
-# 2. Get a list of currently modified and new files from git status
+# 2. Get a list of ALL changed files (staged, modified, untracked)
 modified_files=$(git status --porcelain | grep -E '^( M| A|AM|MM)' | awk '{print $2}')
 untracked_files=$(git status --porcelain | grep '??' | awk '{print $2}')
 all_changed_files="${modified_files} ${untracked_files}"
 
-# 3. Explicitly Stage Intended Files
-#    Only stage files that are both changed AND were mentioned in the plan.
-echo "Staging the following intended and modified files:"
+# 3. Explicitly Stage ALL Intended Files (Handles both new and modified)
+echo "Staging all intended and modified files for commit:"
 staged_count=0
 for file in $all_changed_files; do
     is_intended=false
@@ -217,8 +257,8 @@ if [ $staged_count -eq 0 ]; then
 fi
 
 # 4. HALT on Unplanned Changes
-#    Check for any remaining unstaged or untracked files that were NOT in the plan.
-unintended_changes=$(git status --porcelain)
+#    Check for any remaining unstaged or untracked files.
+unintended_changes=$(git status --porcelain | grep -v '^A ') # Ignore already staged files
 if [ -n "$unintended_changes" ]; then
     echo "❌ ERROR: Unplanned changes detected. The following files were modified or created but were not part of the phase plan:"
     echo "$unintended_changes"
