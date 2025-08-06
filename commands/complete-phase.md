@@ -35,11 +35,11 @@
 
 ### **MODE 1: REQUEST REVIEW**
 
-#### **Review Request Generation Protocol**
-You will now execute the following shell script block in its entirety. It contains all the logic for identifying files, staging new files for review, generating the diff, and creating the final review request file.
+#### **Review Request Generation Protocol (v2 - Hardened)**
+You will now execute the following shell script block in its entirety. It contains hardened logic to ensure only planned files are included in the review diff.
 
 ```bash
-# --- START OF PROTOCOL ---
+# --- START OF HARDENED PROTOCOL ---
 
 # 1. SETUP: Define paths and ensure a clean state.
 mkdir -p ./tmp
@@ -50,12 +50,14 @@ CHECKLIST_FILE="$INITIATIVE_PATH/phase_${PHASE_NUM}_checklist.md"
 echo "INFO: Preparing review request for Phase $PHASE_NUM of initiative at '$INITIATIVE_PATH'."
 
 # 2. PARSE THE PLAN: Identify all files intended for this phase.
-#    This Python script is a robust way to parse the checklist.
+#    This is the source of truth for what should be in the diff.
 intended_files_str=$(python -c "
 import re, sys
 try:
     with open('$CHECKLIST_FILE', 'r') as f: content = f.read()
+    # Find all paths within backticks that look like file paths.
     files = re.findall(r'\`([a-zA-Z0-9/._-]+)\`', content)
+    # Filter for valid-looking file paths and get unique, sorted list.
     valid_files = sorted(list({f for f in files if '/' in f and '.' in f}))
     print(' '.join(valid_files))
 except FileNotFoundError:
@@ -90,14 +92,34 @@ for file in $untracked_files; do
     fi
 done
 
-# 5. GENERATE DIFF: Create a comprehensive diff including staged new files.
+# 5. GENERATE TARGETED DIFF: Create a diff including ONLY the intended files.
+#    This is the critical change that prevents the bug.
 diff_base=$(grep 'Last Phase Commit Hash:' "$IMPL_FILE" | awk '{print $4}')
-# Use --staged to include newly added files, and also diff against HEAD for modified but not staged files.
-git diff --staged "$diff_base" -- . ':(exclude)*.ipynb' > ./tmp/phase_diff.txt
-git diff HEAD -- . ':(exclude)*.ipynb' >> ./tmp/phase_diff.txt
-echo "INFO: Comprehensive diff generated."
+DIFF_FILE="./tmp/phase_diff.txt"
+> "$DIFF_FILE" # Clear the diff file before starting.
 
-# 6. GENERATE REVIEW FILE: Programmatically build the review request.
+echo "INFO: Generating targeted diff against baseline '$diff_base' for intended files only..."
+# Convert the string of files into an array to handle paths correctly.
+read -r -a intended_files_array <<< "$intended_files_str"
+
+# Generate a combined diff for all intended files.
+# This is more efficient than looping and appending for each file.
+git diff --staged "$diff_base" -- "${intended_files_array[@]}" ':(exclude)*.ipynb' >> "$DIFF_FILE"
+git diff HEAD -- "${intended_files_array[@]}" ':(exclude)*.ipynb' >> "$DIFF_FILE"
+
+echo "INFO: Targeted diff generated."
+
+# 6. SANITY CHECK: Verify the diff is not excessively large.
+diff_lines=$(wc -l < "$DIFF_FILE")
+MAX_DIFF_LINES=5000 # Set a reasonable limit
+if [ "$diff_lines" -gt "$MAX_DIFF_LINES" ]; then
+    echo "⚠️ WARNING: The generated diff is very large ($diff_lines lines)."
+    echo "This may indicate that a data file or unintended large file was included in the plan."
+    echo "Please double-check the file list in '$CHECKLIST_FILE'."
+    # This is a warning, not an error, to allow for legitimate large changes.
+fi
+
+# 7. GENERATE REVIEW FILE: Programmatically build the review request.
 PHASE_NAME=$(awk -F': ' "/### \\*\\*Phase $PHASE_NUM:/{print \$2}" "$IMPL_FILE" | head -n 1)
 INITIATIVE_NAME=$(grep 'Name:' PROJECT_STATUS.md | sed 's/Name: //')
 REVIEW_FILE="$INITIATIVE_PATH/review_request_phase_$PHASE_NUM.md"
@@ -156,11 +178,11 @@ DIFF_FILE="./tmp/phase_diff.txt"
 
 echo "✅ Review request file generated programmatically at $REVIEW_FILE"
 
-# 7. UNSTAGE FILES: Reset the index to leave the repository clean for the user.
+# 8. UNSTAGE FILES: Reset the index to leave the repository clean for the user.
 echo "INFO: Unstaging new files. They will be re-staged during the commit process after review."
 git reset > /dev/null
 
-# --- END OF PROTOCOL ---
+# --- END OF HARDENED PROTOCOL ---
 ```
 
 #### **Final Step: Notify and Halt**
