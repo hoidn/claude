@@ -10,7 +10,7 @@
 
 **Mode 1: Request Review (Default)**
 *   **Trigger:** No `review_phase_N.md` file exists for the current phase.
-*   **Action:** You MUST execute the **Review Request Generation Protocol** below and then HALT.
+*   **Action:** You MUST execute the **Review Request Generation Protocol** below **in its entirety as a single, atomic script**. Do not modify it or run it in pieces. After execution, you MUST HALT.
 
 **Mode 2: Process Review**
 *   **Trigger:** A `review_phase_N.md` file EXISTS for the current phase.
@@ -19,94 +19,107 @@
 **DO NOT:**
 -   ❌ Commit any code without a `VERDICT: ACCEPT` from a review file.
 -   ❌ Use `git add -A` or `git add .`. You must use the explicit, plan-driven staging logic.
--   ❌ Guess or perform "detective work." If the state of the repository does not match the plan, you must halt and report the specific discrepancy.
+-   ❌ **Abandon the provided scripts.** If a script fails, report the complete error message and STOP. Do not attempt to "fix" it by running commands manually; the script's atomicity is essential for safety.
 
 ---
 
 ## 📋 **YOUR EXECUTION WORKFLOW**
 
 ### Step 1: Determine Current Mode
--   Read `PROJECT_STATUS.md` to get the current initiative path and phase number (`N`).
--   Check if the file `<path>/review_phase_N.md` exists.
--   If it exists, proceed to **Mode 2: Process Review**.
--   If it does not exist, proceed to **Mode 1: Request Review**.
+1.  Read `PROJECT_STATUS.md` to find the path and phase number (`N`) of the **current active initiative**.
+2.  Check if the file `<path>/review_phase_N.md` exists.
+3.  If it exists, proceed to **Mode 2: Process Review**.
+4.  If it does not exist, proceed to **Mode 1: Request Review**.
 
 ---
 
 ### **MODE 1: REQUEST REVIEW**
 
-#### **Review Request Generation Protocol (v2 - Hardened)**
-You will now execute the following shell script block in its entirety. It contains hardened logic to ensure only planned files are included in the review diff.
+#### **Review Request Generation Protocol (v3 - Enhanced)**
+You will now execute the following shell script block in its entirety. It is designed to be robust against common failures like multi-entry status files and large, untracked repository files.
 
 ```bash
-# --- START OF HARDENED PROTOCOL ---
+#!/bin/bash
+set -e
+set -o pipefail
 
-# 1. SETUP: Define paths and ensure a clean state.
-mkdir -p ./tmp
-INITIATIVE_PATH=$(grep 'Path:' PROJECT_STATUS.md | awk '{print $2}' | tr -d '`')
-PHASE_NUM=$(grep 'Current Phase:' PROJECT_STATUS.md | sed 's/.*Phase \([0-9]*\).*/\1/')
+# --- START OF ENHANCED PROTOCOL ---
+
+# Function to report errors and exit.
+fail() {
+    echo "❌ ERROR: $1" >&2
+    exit 1
+}
+
+# 1. ROBUST PARSING: Find the *active* initiative and get its details.
+# This awk script ensures we only parse the block for the current initiative.
+read INITIATIVE_PATH PHASE_NUM < <(awk '
+  /^### / { in_active = 0 }
+  /^### Current Active Initiative/ { in_active = 1 }
+  in_active && /^Path:/ { path = $2; gsub(/`/, "", path) }
+  in_active && /^Current Phase:/ { phase = $3; sub(":", "", phase) }
+  END { if (path && phase) print path, phase }
+' PROJECT_STATUS.md)
+
+[ -z "$INITIATIVE_PATH" ] && fail "Could not parse INITIATIVE_PATH from PROJECT_STATUS.md."
+[ -z "$PHASE_NUM" ] && fail "Could not parse PHASE_NUM from PROJECT_STATUS.md."
+
+echo "INFO: Preparing review for Phase $PHASE_NUM of initiative at '$INITIATIVE_PATH'."
+
+# Define key file paths
 IMPL_FILE="$INITIATIVE_PATH/implementation.md"
 CHECKLIST_FILE="$INITIATIVE_PATH/phase_${PHASE_NUM}_checklist.md"
-echo "INFO: Preparing review request for Phase $PHASE_NUM of initiative at '$INITIATIVE_PATH'."
+[ ! -f "$IMPL_FILE" ] && fail "Implementation file not found at '$IMPL_FILE'."
+[ ! -f "$CHECKLIST_FILE" ] && fail "Checklist file not found at '$CHECKLIST_FILE'."
 
 # 2. PARSE THE PLAN: Identify all files intended for this phase.
-#    This is the source of truth for what should be in the diff.
+# This is the source of truth for what should be in the diff.
 intended_files_str=$(python -c "
 import re, sys
 try:
     with open('$CHECKLIST_FILE', 'r') as f: content = f.read()
-    # Find all paths within backticks that look like file paths.
     files = re.findall(r'\`([a-zA-Z0-9/._-]+)\`', content)
-    # Filter for valid-looking file paths and get unique, sorted list.
     valid_files = sorted(list({f for f in files if '/' in f and '.' in f}))
     print(' '.join(valid_files))
 except FileNotFoundError:
-    print(f\"ERROR: Checklist file not found at '$CHECKLIST_FILE'\", file=sys.stderr)
     sys.exit(1)
 ")
-
-if [ -z "$intended_files_str" ]; then
-    echo "❌ ERROR: Could not parse any intended file paths from '$CHECKLIST_FILE'. Halting."
-    exit 1
-fi
+[ -z "$intended_files_str" ] && fail "Could not parse any intended file paths from '$CHECKLIST_FILE'."
 echo "INFO: Plan indicates the following files should be modified:"
 echo "$intended_files_str" | tr ' ' '\n' | sed 's/^/ - /'
+read -r -a intended_files_array <<< "$intended_files_str"
 
-# 3. VERIFY STATE: Check that all intended files are actually present in git status.
-all_changed_files=$(git status --porcelain | awk '{print $2}')
-for intended_file in $intended_files_str; do
-    if ! echo "$all_changed_files" | grep -q "^${intended_file}$"; then
-        echo "❌ ERROR: A planned file is missing from git's changed files list: $intended_file"
-        echo "Please ensure the file was created/modified as per the checklist. Halting."
-        exit 1
+# 3. FAST & TARGETED VERIFICATION: Check that all intended files are present in git status.
+# By passing the file list to git status, we avoid scanning the entire repo,
+# which prevents timeouts from large, untracked files.
+all_changed_planned_files=$(git status --porcelain -- "${intended_files_array[@]}" | awk '{print $2}')
+for intended_file in "${intended_files_array[@]}"; do
+    if ! echo "$all_changed_planned_files" | grep -q "^${intended_file}$"; then
+        fail "A planned file is missing from git's changed files list: $intended_file. Please ensure it was created/modified as per the checklist."
     fi
 done
 echo "✅ INFO: All planned files are present in git status."
 
 # 4. STAGE NEW FILES FOR REVIEW: Add only the untracked files that were part of the plan.
-untracked_files=$(git status --porcelain | grep '^??' | awk '{print $2}')
-for file in $untracked_files; do
-    if echo "$intended_files_str" | grep -q "\b$file\b"; then
-        echo "INFO: Staging new file for review diff: $file"
+untracked_files=$(git status --porcelain -- "${intended_files_array[@]}" | grep '^??' | awk '{print $2}' || true)
+if [ -n "$untracked_files" ]; then
+    for file in $untracked_files; do
+        echo "INFO: Staging new planned file for review diff: $file"
         git add "$file"
-    fi
-done
+    done
+fi
 
 # 5. GENERATE TARGETED DIFF: Create a diff including ONLY the intended files.
-#    This is the critical change that prevents the bug.
-diff_base=$(grep 'Last Phase Commit Hash:' "$IMPL_FILE" | awk '{print $4}')
+# This is the critical step that prevents large, unplanned files from corrupting the review.
+mkdir -p ./tmp
 DIFF_FILE="./tmp/phase_diff.txt"
-> "$DIFF_FILE" # Clear the diff file before starting.
+diff_base=$(grep 'Last Phase Commit Hash:' "$IMPL_FILE" | awk '{print $4}')
+[ -z "$diff_base" ] && fail "Could not find 'Last Phase Commit Hash:' in $IMPL_FILE."
 
 echo "INFO: Generating targeted diff against baseline '$diff_base' for intended files only..."
-# Convert the string of files into an array to handle paths correctly.
-read -r -a intended_files_array <<< "$intended_files_str"
-
-# Generate a combined diff for all intended files.
-# This is more efficient than looping and appending for each file.
-git diff --staged "$diff_base" -- "${intended_files_array[@]}" ':(exclude)*.ipynb' >> "$DIFF_FILE"
+# Generate a combined diff for all intended files, excluding notebooks.
+git diff --staged "$diff_base" -- "${intended_files_array[@]}" ':(exclude)*.ipynb' > "$DIFF_FILE"
 git diff HEAD -- "${intended_files_array[@]}" ':(exclude)*.ipynb' >> "$DIFF_FILE"
-
 echo "INFO: Targeted diff generated."
 
 # 6. SANITY CHECK: Verify the diff is not excessively large.
@@ -121,12 +134,11 @@ fi
 
 # 7. GENERATE REVIEW FILE: Programmatically build the review request.
 PHASE_NAME=$(awk -F': ' "/### \\*\\*Phase $PHASE_NUM:/{print \$2}" "$IMPL_FILE" | head -n 1)
-INITIATIVE_NAME=$(grep 'Name:' PROJECT_STATUS.md | sed 's/Name: //')
+INITIATIVE_NAME=$(grep 'Name:' PROJECT_STATUS.md | head -n 1 | sed 's/Name: //')
 REVIEW_FILE="$INITIATIVE_PATH/review_request_phase_$PHASE_NUM.md"
 PLAN_FILE="$INITIATIVE_PATH/plan.md"
-DIFF_FILE="./tmp/phase_diff.txt"
 
-# Create the header
+# Create the review file from components
 {
     echo "# Review Request: Phase $PHASE_NUM - $PHASE_NAME"
     echo ""
@@ -140,10 +152,6 @@ DIFF_FILE="./tmp/phase_diff.txt"
     echo "4.  If rejecting, you **MUST** provide a list of specific, actionable fixes under a \"Required Fixes\" heading."
     echo ""
     echo "---"
-} > "$REVIEW_FILE"
-
-# Append planning documents
-{
     echo "## 1. Planning Documents"
     echo ""
     echo "### R&D Plan (\`plan.md\`)"
@@ -161,28 +169,25 @@ DIFF_FILE="./tmp/phase_diff.txt"
     cat "$CHECKLIST_FILE"
     echo '```'
     echo ""
-} >> "$REVIEW_FILE"
-
-# Append the git diff
-{
     echo "---"
     echo "## 2. Code Changes for This Phase"
     echo ""
     echo "**Baseline Commit:** $diff_base"
-    echo "**Current Branch:** $(git rev-parse --abbrev-ref HEAD)"
     echo ""
     echo '```diff'
     cat "$DIFF_FILE"
     echo '```'
-} >> "$REVIEW_FILE"
+} > "$REVIEW_FILE"
 
-echo "✅ Review request file generated programmatically at $REVIEW_FILE"
+echo "✅ Review request file generated at: $REVIEW_FILE"
 
 # 8. UNSTAGE FILES: Reset the index to leave the repository clean for the user.
-echo "INFO: Unstaging new files. They will be re-staged during the commit process after review."
-git reset > /dev/null
+if [ -n "$untracked_files" ]; then
+    echo "INFO: Unstaging new files. They will be re-staged during the commit process after review."
+    git reset > /dev/null
+fi
 
-# --- END OF HARDENED PROTOCOL ---
+# --- END OF ENHANCED PROTOCOL ---
 ```
 
 #### **Final Step: Notify and Halt**
@@ -210,15 +215,37 @@ git reset > /dev/null
 
 ## 🔒 **Safe Staging and Commit Protocol (For `ACCEPT` Verdict)**
 
-You must execute this precise sequence of commands.
+#### **Safe Staging and Commit Protocol (v3 - Enhanced)**
+If `VERDICT: ACCEPT`, you MUST execute this precise sequence of commands as a single script.
 
 ```bash
-# 1. Re-Identify Intended Files from the Checklist for Verification
-INITIATIVE_PATH=$(grep 'Path:' PROJECT_STATUS.md | awk '{print $2}' | tr -d '`')
-PHASE_NUM=$(grep 'Current Phase:' PROJECT_STATUS.md | sed 's/.*Phase \([0-9]*\).*/\1/')
+#!/bin/bash
+set -e
+set -o pipefail
+
+fail() {
+    echo "❌ ERROR: $1" >&2
+    exit 1
+}
+
+# 1. ROBUST PARSING
+read INITIATIVE_PATH PHASE_NUM < <(awk '
+  /^### / { in_active = 0 }
+  /^### Current Active Initiative/ { in_active = 1 }
+  in_active && /^Path:/ { path = $2; gsub(/`/, "", path) }
+  in_active && /^Current Phase:/ { phase = $3; sub(":", "", phase) }
+  END { if (path && phase) print path, phase }
+' PROJECT_STATUS.md)
+
+[ -z "$INITIATIVE_PATH" ] && fail "Could not parse INITIATIVE_PATH."
+[ -z "$PHASE_NUM" ] && fail "Could not parse PHASE_NUM."
+
 CHECKLIST_FILE="$INITIATIVE_PATH/phase_${PHASE_NUM}_checklist.md"
 IMPL_FILE="$INITIATIVE_PATH/implementation.md"
+[ ! -f "$CHECKLIST_FILE" ] && fail "Checklist file not found: $CHECKLIST_FILE."
+[ ! -f "$IMPL_FILE" ] && fail "Implementation file not found: $IMPL_FILE."
 
+# 2. PARSE THE PLAN
 intended_files_str=$(python -c "
 import re, sys
 try:
@@ -229,60 +256,58 @@ try:
 except FileNotFoundError:
     sys.exit(1)
 ")
-read -r -a intended_files <<< "$intended_files_str"
-echo "Verifying staged files against the plan:"
-printf " - %s\n" "${intended_files[@]}"
+[ -z "$intended_files_str" ] && fail "Could not parse any intended files from checklist."
+read -r -a intended_files_array <<< "$intended_files_str"
+echo "INFO: Staging files according to plan:"
+printf " - %s\n" "${intended_files_array[@]}"
 
-# 2. Get a list of ALL changed files (staged, modified, untracked)
-all_changed_files=$(git status --porcelain | awk '{print $2}')
+# 3. FAST & TARGETED STAGING: Explicitly stage ONLY intended files.
+git add "${intended_files_array[@]}"
+echo "✅ INFO: Staged all planned files."
 
-# 3. Explicitly Stage ALL Intended Files (Handles both new and modified)
-echo "Staging all intended and modified files for commit:"
-staged_count=0
-for file in $all_changed_files; do
-    is_intended=false
-    for intended_file in "${intended_files[@]}"; do
-        if [[ "$file" == "$intended_file" ]]; then
-            is_intended=true
-            break
-        fi
-    done
-
-    if $is_intended; then
-        echo "- Staging $file"
-        git add "$file"
-        staged_count=$((staged_count + 1))
-    fi
-done
-
-if [ $staged_count -eq 0 ]; then
-    echo "⚠️ WARNING: No files were staged. This might mean the changes were already committed or the checklist file paths are incorrect."
-fi
-
-# 4. HALT on Unplanned Changes
-#    Check for any remaining unstaged or untracked files, ignoring already staged files.
-unintended_changes=$(git status --porcelain | grep -v '^A ')
+# 4. HALT ON UNPLANNED CHANGES: Verify no other files were modified.
+# We check the status of the *entire repo* here, but EXCLUDE the files we just staged.
+# This is the one place a full 'git status' is required, to ensure repo cleanliness.
+unintended_changes=$(git status --porcelain | grep -v '^A[ M]')
 if [ -n "$unintended_changes" ]; then
-    echo "❌ ERROR: Unplanned changes detected. The following files were modified or created but were not part of the phase plan:"
+    echo "Unplanned changes detected:"
     echo "$unintended_changes"
-    echo "Please review these files. Either add them to the phase checklist or revert them before committing."
-    exit 1
+    fail "The repository contains modified or untracked files not in the phase plan. Please revert them or add them to the checklist."
 fi
 
-# 5. Commit the Staged Changes
-echo "Committing staged changes..."
-phase_deliverable=$(awk -F': ' "/^**Deliverable**/{print \$2}" "$IMPL_FILE" | head -n 1)
-git commit -m "feat: Phase $PHASE_NUM - $phase_deliverable"
-
-# 6. Verify the commit was successful and capture the new hash
-if [ $? -ne 0 ]; then
-    echo "❌ ERROR: Git commit failed. Halting."
-    exit 1
-fi
+# 5. COMMIT
+phase_deliverable=$(awk -F': ' "/^\\*\\*Deliverable\\*\\*/{print \$2}" "$IMPL_FILE" | head -n 1)
+commit_message="feat: Phase $PHASE_NUM - $phase_deliverable"
+echo "INFO: Committing with message: '$commit_message'"
+git commit -m "$commit_message"
 new_hash=$(git rev-parse HEAD)
-echo "New commit hash is: $new_hash"
+echo "✅ Commit successful. New commit hash: $new_hash"
 
-# 7. Proceed with State Updates
-#    (Update implementation.md, PROJECT_STATUS.md, etc.)
-#    This part would be another set of sed/awk commands to update the status files.
+# 6. UPDATE STATE FILES
+echo "INFO: Updating state files..."
+
+# Update implementation.md with new commit hash
+sed -i "s/Last Phase Commit Hash: .*/Last Phase Commit Hash: $new_hash/" "$IMPL_FILE"
+
+# Update PROJECT_STATUS.md
+# First, calculate next phase
+NEXT_PHASE=$((PHASE_NUM + 1))
+TOTAL_PHASES=$(grep -c "^### \*\*Phase [0-9]" "$IMPL_FILE")
+
+if [ "$NEXT_PHASE" -le "$TOTAL_PHASES" ]; then
+    # Update to next phase
+    sed -i "/^### Current Active Initiative/,/^###/ {
+        s/Current Phase: Phase [0-9]*/Current Phase: Phase $NEXT_PHASE/
+    }" PROJECT_STATUS.md
+    echo "✅ Advanced to Phase $NEXT_PHASE"
+else
+    # Initiative complete
+    sed -i "/^### Current Active Initiative/,/^###/ {
+        s/Status: .*/Status: Completed/
+        s/Current Phase: .*/Current Phase: Completed/
+    }" PROJECT_STATUS.md
+    echo "✅ Initiative completed!"
+fi
+
+echo "✅ State files updated successfully."
 ```
