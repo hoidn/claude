@@ -12,8 +12,8 @@
 **YOUR ROLE IS AN AUTONOMOUS ORCHESTRATOR AND FILE MANAGER. YOU DO NOT PERFORM THE ANALYSIS.**
 1.  You MUST gather the user's high-level objective from the command arguments.
 2.  You MUST run `repomix` to create a complete, fresh snapshot of the codebase context.
-3.  You MUST build a structured prompt file (`doc-plan-prompt.md`) to delegate the analysis and planning to Gemini.
-4.  You MUST execute `gemini -p "@doc-plan-prompt.md"`.
+3.  You MUST build a structured prompt file (`tmp/doc-plan-prompt.md`) to delegate the analysis and planning to Gemini.
+4.  You MUST execute `gemini -p "@tmp/doc-plan-prompt.md"`.
 5.  You MUST parse Gemini's structured response to create the three critical state files: `modules_prioritized.txt`, `dependency_report.txt`, and `docstring_progress.md`.
 6.  You MUST then proceed to Phase 2 (Sub-Agent Orchestration) using these Gemini-generated files as the source of truth.
 
@@ -28,14 +28,185 @@
 
 ### **Phase 1: Gemini-Powered Strategic Analysis**
 
-*(You will execute these commands directly to have Gemini generate the plan.)*
+In this phase, you'll execute commands to have Gemini analyze the codebase and generate a prioritized plan for adding docstrings.
 
-| ID | Task Description | State | How/Why & API Guidance |
-| :-- | :--- | :--- | :--- |
-| 1.A | **Aggregate Codebase Context** | `[ ]` | **Why:** To provide Gemini with a complete and fresh snapshot of the project for accurate analysis. <br> **How:** Execute the following command now. <br> ```bash <br> # The user's high-level objective is in $ARGUMENTS <br> npx repomix@latest . \ <br>   --include "ptycho/**/*.py,**/*.md" \ <br>   --ignore "build/**,node_modules/**,dist/**,*.lock,scripts/**" <br> <br> if [ ! -s ./repomix-output.xml ]; then <br>     echo "❌ ERROR: Repomix failed to generate the codebase context. Aborting." <br>     exit 1 <br> fi <br> echo "✅ Codebase context aggregated into repomix-output.xml." <br> ``` |
-| 1.B | **Build Gemini Prompt** | `[ ]` | **Why:** To create a structured, verifiable prompt that delegates the entire analysis task to Gemini. <br> **How:** Execute the following commands now to create `doc-plan-prompt.md`. <br> ```bash <br> # Create the structured prompt for Gemini <br> cat > ./doc-plan-prompt.md << 'PROMPT' <br> <task> <br> You are an expert Staff Engineer. Your task is to analyze an entire codebase and create a prioritized plan for adding module-level docstrings. <br> <br> <steps> <br> <1> <br> Analyze the `<user_objective>` and the full `<codebase_context>`. <br> </1> <br> <2> <br> Identify all target Python modules (`.py` files in the `ptycho/` directory, excluding `__init__.py`). <br> </2> <br> <3> <br> Analyze the dependencies between these modules to determine a safe documentation order. Foundational modules (those with few dependencies) should come first. <br> </3> <br> <4> <br> Generate a prioritized list of modules and a summary of their dependencies, strictly adhering to the format specified in `<output_format>`. <br> </4> <br> </steps> <br> <br> <context> <br> <user_objective> <br> [Placeholder for the user's objective] <br> </user_objective> <br> <br> <codebase_context> <br> <!-- Placeholder for content from repomix-output.xml --> <br> </codebase_context> <br> </context> <br> <br> <output_format> <br> Your entire response must be a single block. Do not include any conversational text. The format is non-negotiable. <br> <br> ---PRIORITIZED_MODULES_START--- <br> [List of module file paths, one per line, sorted from least to most dependent.] <br> ---PRIORITIZED_MODULES_END--- <br> <br> ---DEPENDENCY_REPORT_START--- <br> [A human-readable summary of key dependencies. For example: "ptycho/loader.py depends on ptycho/raw_data.py, ptycho/tf_helper.py"] <br> ---DEPENDENCY_REPORT_END--- <br> </output_format> <br> </task> <br> PROMPT <br> <br> # Inject the user objective and repomix context into the prompt <br> echo "$ARGUMENTS" > ./tmp/user_objective.txt <br> sed -i.bak -e '/\[Placeholder for the user.s objective\]/r ./tmp/user_objective.txt' -e '//d' ./doc-plan-prompt.md <br> <br> echo -e "\n<codebase_context>" >> ./doc-plan-prompt.md <br> cat ./repomix-output.xml >> ./doc-plan-prompt.md <br> echo -e "\n</codebase_context>" >> ./doc-plan-prompt.md <br> <br> echo "✅ Successfully built structured prompt file: ./doc-plan-prompt.md" <br> ``` |
-| 1.C | **Execute Gemini Analysis** | `[ ]` | **Why:** To run the analysis and generate the plan. <br> **How:** Execute the `gemini` command now. <br> ```bash <br> # Execute Gemini with the fully-formed prompt file <br> gemini -p "@./doc-plan-prompt.md" <br> ``` |
-| 1.D | **Create State Files from Gemini's Output** | `[ ]` | **Why:** To parse Gemini's structured response and create the state files needed for the subsequent execution phases. <br> **How:** You must now parse the response from the previous command and create the three state files. <br> ```bash <br> # Assume Gemini's response is in a variable $GEMINI_RESPONSE <br> <br> # Create modules_prioritized.txt <br> awk '/---PRIORITIZED_MODULES_START---/,/---PRIORITIZED_MODULES_END---/' <<< "$GEMINI_RESPONSE" | sed '1d;$d' > modules_prioritized.txt <br> <br> # Create dependency_report.txt <br> awk '/---DEPENDENCY_REPORT_START---/,/---DEPENDENCY_REPORT_END---/' <<< "$GEMINI_RESPONSE" | sed '1d;$d' > dependency_report.txt <br> <br> # Verify that the files were created <br> if [ ! -s modules_prioritized.txt ]; then <br>     echo "❌ ERROR: Gemini failed to return a prioritized module list. Aborting." <br>     exit 1 <br> fi <br> <br> # Create the progress tracker from the prioritized list <br> echo "# Docstring Progress Tracker" > docstring_progress.md <br> echo "" >> docstring_progress.md <br> while read -r line; do <br>   echo "- [ ] \`$line\`" >> docstring_progress.md <br> done < modules_prioritized.txt <br> <br> echo "✅ Gemini analysis complete. State files created:" <br> echo "  - modules_prioritized.txt" <br> echo "  - dependency_report.txt" <br> echo "  - docstring_progress.md" <br> ``` |
+#### **Step 1.A: Aggregate Codebase Context**
+
+First, create a complete snapshot of the project for Gemini to analyze. This uses repomix to gather all relevant Python and markdown files while excluding unnecessary content like notebooks, review files, and archived plans.
+
+```bash
+# The user's high-level objective is in $ARGUMENTS
+npx repomix@latest . \
+  --include "ptycho/**/*.py,*.md,docs/**/*.md,.claude/**/*.md,plans/active/**/*.md" \
+  -i "**/*.ipynb,build/**,node_modules/**,dist/**,*.lock,**/review_request*.md,plans/archive/**,plans/examples/**,tensorflow/**,tmp/**"
+
+if [ ! -s ./repomix-output.xml ]; then
+    echo "❌ ERROR: Repomix failed to generate the codebase context. Aborting."
+    exit 1
+fi
+echo "✅ Codebase context aggregated into repomix-output.xml."
+```
+
+#### **Step 1.B: Build Gemini Prompt File**
+
+Create a structured prompt file that delegates the analysis task to Gemini. This uses an append-only approach to avoid complex string substitutions.
+
+```bash
+# This script builds a highly-structured prompt file for Gemini to generate a
+# phased, strategic plan for adding module-level docstrings.
+
+# The prompt is constructed incrementally to safely handle user input and large
+# context files.
+
+# --- Step 1: Start building the prompt file with the core task and persona ---
+cat > ./tmp/doc-plan-prompt.md << 'EOF'
+<task>
+You are an expert Staff Engineer specializing in large-scale codebase analysis and technical documentation strategy. Your primary skills are in understanding system architecture, data flow, state management, and API contracts.
+
+Your task is to perform an architectural deep-dive of the provided codebase and generate a comprehensive, prioritized documentation strategy. Your final report must be structured as a phased, actionable work plan.
+
+<persona>
+- You think in terms of data contracts, not just function calls.
+- You are obsessed with identifying and documenting state dependencies (e.g., global configurations) because they are a primary source of bugs.
+- You prioritize clarity in the public API of each module.
+- You believe a documentation plan is only as good as the analysis that underpins it.
+</persona>
+
+<thinking_workflow>
+To produce the final report, you MUST follow this internal thought process:
+
+1.  **Full Analysis:** Systematically enumerate and analyze every target Python module (`.py` files in `ptycho/`, excluding `__init__.py`). For each module, gather the details required by the per-module template in the output format.
+2.  **Strategic Grouping:** After analyzing all modules, identify logical, thematic phases for the documentation effort (e.g., "Phase 1: Configuration & State", "Phase 2: Core Physics & Tensor Ops", "Phase 3: Data Pipeline", etc.). Assign each module to one of these strategic phases.
+3.  **Final Report Generation:** Construct the final output. First, write down your strategic grouping and rationale. Then, present the detailed module-by-module plan, organized under the phase headings you just defined.
+</thinking_workflow>
+
+<user_objective>
+EOF
+
+# --- Step 2: Append the user's high-level objective from the command arguments ---
+echo "$ARGUMENTS" >> ./tmp/doc-plan-prompt.md
+
+# --- Step 3: Append the closing tag for the objective and the detailed output format instructions ---
+# We use 'cat >>' to append the next large static block.
+cat >> ./tmp/doc-plan-prompt.md << 'EOF'
+</user_objective>
+
+<output_format>
+Your final output must be a single, comprehensive report starting with your strategic analysis, followed by the detailed, phased plan.
+
+<analysis_and_strategy>
+This section must contain your high-level strategic thinking.
+
+**Architectural Pillars:**
+[Briefly describe the 3-4 main architectural pillars you identified.]
+
+**Proposed Documentation Phases:**
+[List the strategic phases you've decided on and provide a 1-sentence rationale for each. For example:]
+- **Phase 1: Configuration & Foundational Utilities:** Document the core state management and widely used helpers first, as they are dependencies for everything else.
+- **Phase 2: Core Physics & Tensor Operations:** Focus on the stable, foundational modules that define the system's scientific and computational contracts.
+- **Phase 3: Data Ingestion Pipeline:** Document the flow of data from raw files to model-ready tensors.
+- **Phase 4: Model & Training Workflows:** Document the central model architecture and the high-level orchestrators.
+</analysis_and_strategy>
+
+<prioritized_documentation_plan>
+This section must contain the detailed module-by-module plan, grouped under the phase headings you defined above. Each module entry must strictly adhere to the following Markdown format.
+
+---
+## Phase 1: Configuration & Foundational Utilities
+
+- **File:** `[path/to/module.py]`
+  - **Priority:** `[CRITICAL | HIGH | MEDIUM | LOW]`
+  - **Role & Architectural Significance:** A concise summary of this module's purpose and its importance in the system's architecture.
+  - **Key Public API(s):** List the most important public functions or classes.
+  - **Data Flow Contract (Inputs/Outputs):**
+    - **Input:** Describe the primary data consumed, including source, type, and shape.
+    - **Output:** Describe the primary data produced, including destination, type, and shape.
+  - **State Dependencies:** Explicitly identify any dependencies on external or global state. If none, state "None."
+  - **Dependencies (Internal):** List key internal `ptycho` modules this module imports.
+  - **Consumers (Internal):** List key internal `ptycho` modules that import this one.
+  - **Docstring Action Plan:** `[NO_CHANGE | IMPROVE | REWRITE | CREATE]` - Provide a concrete, actionable recommendation. (e.g., "CREATE: The module is undocumented.", "IMPROVE: Add a workflow example showing interaction with `loader.py`.", "REWRITE: The current docstring is outdated and incorrectly describes the algorithm. Must update to reflect the 'sample-then-group' logic.").
+
+## Phase 2: Core Physics & Tensor Operations
+... (and so on for each phase and module)
+</prioritized_documentation_plan>
+</output_format>
+
+<gold_standard_example>
+Here is an example of the expected quality and detail for a single module entry under a phase heading. Your analysis for every module must match this level of depth.
+
+## Phase 3: Data Ingestion Pipeline
+
+- **File:** `ptycho/raw_data.py`
+  - **Priority:** `HIGH`
+  - **Role & Architectural Significance:** The primary data ingestion layer. Its key architectural role is to abstract away raw file formats and enforce physical coherence of scan positions *before* they enter the main ML pipeline, which is crucial for the validity of `gridsize > 1` training.
+  - **Key Public API(s):** `RawData` class, `RawData.generate_grouped_data()`.
+  - **Data Flow Contract (Inputs/Outputs):**
+    - **Input:** Raw `.npz` files containing NumPy arrays. Key arrays include `'diffraction'` with shape `(num_scans, N, N)` and `'xcoords'`/`'ycoords'` with shape `(num_scans,)`.
+    - **Output:** A dictionary of grouped NumPy arrays consumed by `ptycho.loader`. The output shape is critically dependent on `params.get('gridsize')`:
+      - **If `gridsize > 1`**: Arrays are in "Channel Format", e.g., the `X` (diffraction) array has shape `(nsamples, N, N, gridsize**2)`.
+      - **If `gridsize == 1`**: Arrays represent individual patches, e.g., the `X` (diffraction) array has shape `(nsamples, N, N, 1)`.
+  - **State Dependencies:** Critically dependent on the global `ptycho.params.get('gridsize')` which algorithmically changes its grouping strategy from sequential slicing to a robust "sample-then-group" method.
+  - **Dependencies (Internal):** `ptycho.params`, `ptycho.config.config`, `ptycho.tf_helper`.
+  - **Consumers (Internal):** `ptycho.loader`, `ptycho.workflows.components`.
+  - **Docstring Action Plan:** `REWRITE` - The current docstring is outdated. It incorrectly describes the algorithm as "group-then-sample" and must be updated to reflect the current, performance-optimized "sample-then-group" logic. The critical state dependency on `gridsize` and the conditional output shapes must also be explicitly documented.
+</gold_standard_example>
+EOF
+
+# --- Step 4: Add the opening tag for the codebase context ---
+echo "<codebase_context>" >> ./tmp/doc-plan-prompt.md
+
+# --- Step 5: Append the full codebase context from the repomix output file ---
+cat ./repomix-output.xml >> ./tmp/doc-plan-prompt.md
+
+# --- Step 6: Append the closing tags to finalize the prompt file ---
+echo "</codebase_context>" >> ./tmp/doc-plan-prompt.md
+echo "</task>" >> ./tmp/doc-plan-prompt.md
+
+echo "✅ Successfully built structured prompt file: ./tmp/doc-plan-prompt.md"
+```
+
+#### **Step 1.C: Execute Gemini Analysis**
+
+Run Gemini with the prompt file to generate the prioritized module list and dependency report.
+
+```bash
+# Execute Gemini with the fully-formed prompt file and capture response
+GEMINI_RESPONSE=$(gemini -p "@./tmp/doc-plan-prompt.md") || {
+    echo "❌ ERROR: Gemini command failed"
+    exit 1
+}
+
+# Save the raw response for debugging if needed
+echo "$GEMINI_RESPONSE" > ./gemini_response_raw.txt
+```
+
+#### **Step 1.D: Create State Files from Gemini's Output**
+
+Parse Gemini's structured response to create the three state files that will guide Phase 2.
+
+```bash
+# Parse the Gemini response that was captured in the previous step
+
+# Create modules_prioritized.txt
+awk '/---PRIORITIZED_MODULES_START---/,/---PRIORITIZED_MODULES_END---/' ./gemini_response_raw.txt | sed '1d;$d' > modules_prioritized.txt
+
+# Create dependency_report.txt
+awk '/---DEPENDENCY_REPORT_START---/,/---DEPENDENCY_REPORT_END---/' ./gemini_response_raw.txt | sed '1d;$d' > dependency_report.txt
+
+# Verify that the files were created
+if [ ! -s modules_prioritized.txt ]; then
+    echo "❌ ERROR: Gemini failed to return a prioritized module list. Aborting."
+    exit 1
+fi
+
+# Create the progress tracker from the prioritized list
+( echo "# Docstring Progress Tracker"; echo ""; cat modules_prioritized.txt | while read -r line; do echo "- [ ] \`$line\`"; done ) > docstring_progress.md
+
+echo "✅ Gemini analysis complete. State files created:"
+echo "  - modules_prioritized.txt"
+echo "  - dependency_report.txt"
+echo "  - docstring_progress.md"
+```
 
 ---
 
@@ -45,7 +216,7 @@
 
 | ID | Task Description | State | How/Why & API Guidance |
 | :-- | :--- | :--- | :--- |
-| 2.A | **Orchestrate Documentation of Each Module** | `[ ]` | **Why:** To process each module independently by delegating to specialized sub-agents. <br> **How:** Begin a loop. For each file path in `modules_prioritized.txt`: <br> 1. **Invoke a new, single-purpose "Authoring Sub-Agent."** <br> 2. Provide it with the updated instructions from the **"Sub-Agent Instructions: Docstring Authoring (v6)"** section. <br> 3. Pass the specific module's file path and the `dependency_report.txt` file as context. <br> 4. After the sub-agent successfully completes, mark the corresponding item as done in `docstring_progress.md` and proceed to the next module in the loop. |
+| 2.A | **Orchestrate Documentation of Each Module** | `[ ]` | **Why:** To process each module independently by delegating to specialized sub-agents. <br> **How:** Begin a loop. For each file path in `modules_prioritized.txt`: <br> 1. **Invoke a new, single-purpose "Authoring Sub-Agent."** <br> 2. Provide it with the FULL instructions from the **"Sub-Agent Instructions: Docstring Authoring (v6)"** section, including Gemini's recommentation / analysis relevant to that module. <br> 3. Pass the specific module's file path and the `dependency_report.txt` file as context. <br> 4. After the sub-agent successfully completes, mark the corresponding item as done in `docstring_progress.md` and proceed to the next module in the loop. |
 
 ---
 
@@ -71,6 +242,7 @@
 **Your Context:**
 *   **Target Module:** `<path/to/module.py>` (Its full content is available in the `repomix` context)
 *   **Dependency Report:** `ptycho/dependency_report.txt`
+*   **Additional Context:** [Gemini's analysis and recommendations for this module]
 
 **Your Workflow:**
 
@@ -90,6 +262,8 @@
    - **Refactor:** Create a new, improved version of the docstring.
      - You **MUST** preserve any valuable, accurate information from the original.
      - You **MUST** fix all identified gaps and anti-patterns.
+     - You **MUST** improve the docstring, unless you believe it is already perfect.
+     - You should ensure the docstring is no longer than 15% of the original file size, but occasionally exceeding this limit is acceptable
      - The final output **MUST** be 100% compliant with the "Hardened Docstring Template," regardless of the original's structure.
    - **Verification & Replacement:** Ensure the refactored docstring meets the 15% size limit, then replace the old docstring in the file with your new, improved version.
 
@@ -228,7 +402,7 @@ Usage Example:
 Your generated docstrings will be rejected if they contain the following:
 
 *   **Vague Summaries:** Avoid generic phrases like "This module contains helper functions" or "Utilities for data processing." Be specific about its role.
-*   **Marketing Language:** Do not use subjective fluff like "critical," "essential," "high-performance," or specific speedup numbers. Instead, explain *how* it is performant (e.g., "Uses a batched algorithm to manage memory").
+*   **Marketing Language:** Do not use subjective fluff like "critical," "essential," "performance", "high-performance". Instead, explain *how* it is performant (e.g., "Uses a batched algorithm to manage memory") and only quantify performance when relevant and when you have supporting benchmark numbers. Words you are NEVER ever allowed to use: "critical," "essential," "high-performance," "fast," "efficient," "optimized," "comprehensive", you get the idea.
 *   **Implementation Details:** Do not explain the line-by-line logic of the code. Focus on the public contract: what goes in, what comes out, and what it's for.
 *   **Isolated Examples:** Do not provide usage examples that are just a single function call with placeholder variables. The example must show a realistic interaction between modules.
 *   **Inaccurate Consumer Lists:** Do not guess which modules use this one. The dependency report is the source of truth.
@@ -263,4 +437,5 @@ Your generated docstrings will be rejected if they contain the following:
     *   **Architecture Accuracy:** Assessment of architectural claims.
     *   **Recommendations:** Suggested improvements for consistency.
 5.  **Report Findings:** Return the path to the generated report. The Orchestrator will decide if fixes are needed before proceeding.
+
 
