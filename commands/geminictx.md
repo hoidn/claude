@@ -35,9 +35,7 @@ USER_QUERY="$ARGUMENTS"
 
 # Use repomix for a complete, single-file context snapshot.
 # This is more robust than a long list of @-references.
-npx repomix@latest . \
-  --include "**/*.{js,py,md,sh,json,c,h,log}" \
-  --ignore "build/**,node_modules/**,dist/**,*.lock"
+npx repomix@latest . --top-files-len 20 --include "**/*.{js,py,md,sh,json,c,h}" --ignore "build/**,node_modules/**,dist/**,*.lock,.claude/**,PtychoNN/**,torch/**"
 
 # Verify that the context was created successfully.
 if [ ! -s ./repomix-output.xml ]; then
