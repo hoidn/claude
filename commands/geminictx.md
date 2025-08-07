@@ -35,7 +35,8 @@ USER_QUERY="$ARGUMENTS"
 
 # Use repomix for a complete, single-file context snapshot.
 # This is more robust than a long list of @-references.
-npx repomix@latest . --top-files-len 20 --include "**/*.{js,py,md,sh,json,c,h}" --ignore "build/**,node_modules/**,dist/**,*.lock,.claude/**,PtychoNN/**,torch/**"
+# TODO: manually removing gemini-pass1-prompt.md is a temporary hack; we should have a principled way to exclude big .md files.
+rm gemini-pass1-prompt.md; npx repomix@latest . --top-files-len 20 --include "**/*.{js,py,md,sh,json,c,h}" --ignore "build/**,node_modules/**,dist/**,*.lock,.claude/**,PtychoNN/**,torch/**"
 
 # Verify that the context was created successfully.
 if [ ! -s ./repomix-output.xml ]; then
@@ -95,17 +96,23 @@ Do not include any other text, conversation, or summaries in your response.
 PROMPT
 ```
 
-#### Step 2.2: Append Dynamic Context
+#### Step 2.2: Append Dynamic Context (Corrected Logic)
 ```bash
-# Inject the user's query and the repomix context into the prompt file.
-# Using a temp file for the query handles special characters safely.
+# This script injects the dynamic content into the prompt template using
+# idempotent `sed` commands to prevent context duplication bugs.
+
+# Inject the user's query by replacing its placeholder.
+# Using a temp file handles special characters and multi-line input safely.
 echo "$USER_QUERY" > ./tmp/user_query.txt
 sed -i.bak -e '/\[Placeholder for the user.s query\]/r ./tmp/user_query.txt' -e '//d' ./gemini-pass1-prompt.md
 
-# Append the codebase context
-echo -e "\n<codebase_context>" >> ./gemini-pass1-prompt.md
-cat ./repomix-output.xml >> ./gemini-pass1-prompt.md
-echo -e "\n</codebase_context>" >> ./gemini-pass1-prompt.md
+# **CRITICAL FIX:** Atomically replace the codebase context placeholder.
+# This robust method prevents the repomix output from being appended multiple
+# times if the command is re-run or misinterpreted by the agent.
+sed -i.bak -e '/<!-- Placeholder for content from repomix-output.xml -->/r ./repomix-output.xml' -e '//d' ./gemini-pass1-prompt.md
+
+# Clean up backup files created by sed
+rm -f ./gemini-pass1-prompt.md.bak
 
 echo "✅ Built structured prompt for Pass 1: ./gemini-pass1-prompt.md"
 ```
@@ -122,7 +129,6 @@ After receiving the list of files from Gemini, parse the output and prepare to r
 
 ```bash
 # [You will receive Gemini's response, e.g., captured in $GEMINI_RESPONSE]
-# For this example, we'll simulate parsing the response to get a file list.
 
 # Parse the output to get a clean list of file paths.
 # This is a robust way to extract just the file paths for the next step.
@@ -131,7 +137,6 @@ FILE_LIST=$(echo "$GEMINI_RESPONSE" | grep '^FILE: ' | sed 's/^FILE: //')
 # Verify that Gemini returned relevant files.
 if [ -z "$FILE_LIST" ]; then
     echo "⚠️ Gemini did not identify any specific files for your query. I will attempt to answer based on general project knowledge, but the answer may be incomplete."
-    # You might choose to exit here or proceed with caution.
     exit 0
 fi
 
@@ -158,7 +163,7 @@ echo "Now reading the full content of each identified file to build a deep under
 
 ### Step 5: Present Your Synthesized Analysis
 
-Your final output to the user should follow the well-structured format from your original prompt.
+Your final output to the user should follow this well-structured format.
 
 ```markdown
 Based on your query, Gemini identified the following key files, which I have now read and analyzed in their entirety:
@@ -196,3 +201,13 @@ Here is a synthesized analysis of how they work together to address your questio
 ### Conclusion
 [End with a concluding thought or a question to guide the user's next step.]
 ```
+
+---
+### Design Rationale & Best Practices
+
+The logic in **Step 2.2** was specifically updated to use `sed` for injecting the `repomix` context. The previous method of using `echo ... >>` and `cat ... >>` was not **idempotent**, meaning running it multiple times would append the context repeatedly, leading to a corrupted prompt.
+
+The corrected `sed -i.bak -e '/<placeholder>/r <file>' -e '//d' <prompt_file>` pattern is the standard for this project because:
+1.  **It is atomic:** It finds and replaces the placeholder in one operation.
+2.  **It is idempotent:** If the command is run again, the placeholder no longer exists, so no further changes are made.
+3.  **It is unambiguous:** It provides a single, clear instruction to the agent, reducing the chance of misinterpretation.
