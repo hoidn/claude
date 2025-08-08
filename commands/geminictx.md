@@ -59,14 +59,29 @@ rm -f ./gemini-pass1-prompt.md 2>/dev/null
 # Create the structured prompt using the v3.0 XML pattern
 cat > ./gemini-pass1-prompt.md << 'PROMPT'
 <task>
-You are a **Context Locator**. Your sole purpose is to analyze the provided codebase context and identify the most relevant files for answering the user's query. Do not answer the query yourself.
+You are an expert scientist and staff level engineer. Your sole purpose is to analyze the provided codebase context and identify the most relevant files for answering the user's query. Do not answer the query yourself.
 
 <steps>
+<0>
+Given the codebase context in `<codebase_context>`,
+in a <scratchpad>, list the paths of:
+ - all source code files
+ - all documentation files (all .md files that document the project's architecture and design, but not one-off files like session summaries)
+ - all test files
+ - all configuration files
+ - all other relevant files
+ </0>
+
 <1>
 Analyze the user's `<query>`.
+REVIEW PROJECT DOCUMENTATION
+ - **Read CLAUDE.md thoroughly** - This contains essential project context, architecture, and known patterns
+ - **Read DEVELOPER_GUIDE.md carefully** - This explains the development workflow, common issues, and debugging approaches
+ - Review all architecture.md and all other high-level architecture documents
+ - **Understand the project structure** from these documents before diving into the code
 </1>
 <2>
-Scan the entire `<codebase_context>` to find all files (source code, documentation, configs) that are relevant to the query.
+Think about the <query> and analyze the codebase to form a full understanding of it. Once you are confident in your understanding, review the `<codebase_context>` again to identify all files (source code, documentation, configs) that might be relevant to the query (if in doubt, err on the side of including more files).
 </2>
 <3>
 For each relevant file you identify, provide your output in the strict format specified in `<output_format>`.
@@ -84,13 +99,20 @@ For each relevant file you identify, provide your output in the strict format sp
 </context>
 
 <output_format>
-Your output must be a list of entries. Each entry MUST follow this exact format, ending with three dashes on a new line.
+Your output must contain two sections:
+Section 1: A detailed analysis of all data flows, transformations, and component interactions relevant to the query. 
+Include mathematical formulas and diagrams where appropriate.
+
+Section 2:
+A list of entries. Each entry MUST follow this exact format, ending with three dashes on a new line.
 
 FILE: [exact/path/to/file.ext]
 RELEVANCE: [A concise, one-sentence explanation of why this file is relevant.]
+SCORE: [A numeric score from 0.4 to 10.0, where 10 is the most relevant.]
 ---
 
-Do not include any other text, conversation, or summaries in your response.
+Do not include any other text, conversation, or summaries in your response. Do 
+not use tools. Your job is to do analysis, not an intervention
 </output_format>
 </task>
 PROMPT
@@ -118,9 +140,10 @@ echo "✅ Built structured prompt for Pass 1: ./gemini-pass1-prompt.md"
 ```
 
 #### Step 2.3: Execute Gemini
+IMPORTANT: do NOT use a timeout for the gemini command. Gemini may need more than 1 minute to process the large context.
 ```bash
 # Execute Gemini with the single, clean prompt file.
-gemini -p "@./gemini-pass1-prompt.md"
+gemini -p "@./gemini-pass1-prompt.md > ./tmp/gemini-pass1-response.txt"
 ```
 
 ### Step 3: Process Gemini's Response & Prepare for Pass 2
