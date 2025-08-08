@@ -30,6 +30,9 @@
 Create an isolated environment for this run's artifacts and then generate the codebase context.
 
 ```bash
+set -euo pipefail
+IFS=$'\n\t'
+
 # The user's query is passed as $ARGUMENTS
 USER_QUERY="$ARGUMENTS"
 # Create a unique, isolated directory for this run's artifacts to prevent context pollution.
@@ -166,22 +169,30 @@ fi
 Parse the response file from the temporary directory.
 
 ```bash
-# Read the response from the output file.
-GEMINI_RESPONSE=$(cat "$GEMINI_RESPONSE_FILE")
+# Read response
+GEMINI_RESPONSE_FILE="$TEMP_DIR/gemini-pass1-response.txt"
+GEMINI_RESPONSE="$(cat "$GEMINI_RESPONSE_FILE")"
 
-# **CRITICAL:** Parse only the files from "Section 3" of the response.
-# This awk script starts capturing when it sees the "Section 3" header
-# and then extracts the file path from any line starting with "FILE:".
-FILE_LIST=$(awk '/^Section 3: Curated File List/{flag=1; next} flag && /^FILE: / {print $2}' "$GEMINI_RESPONSE_FILE")
+# Extract only the "Curated File List" (Section 3), keep full path after "FILE: "
+FILE_LIST="$(
+  awk '
+    BEGIN{capture=0}
+    /^Section 3: Curated File List/ {capture=1; next}
+    capture && /^Section [0-9]+:/ {capture=0}
+    capture && /^FILE: / { sub(/^FILE:[[:space:]]*/,""); print }
+  ' "$GEMINI_RESPONSE_FILE"
+)"
 
-# Verify that Gemini returned relevant files.
 if [ -z "$FILE_LIST" ]; then
-    echo "⚠️ Gemini did not identify any specific files in Section 3 of its response. The analysis may be incomplete."
-    exit 0
+  echo "⚠️ Gemini did not identify any files in Section 3. The analysis may be incomplete."
+  exit 0
 fi
 
-echo "Gemini identified the following relevant files for analysis:"
-echo "$FILE_LIST"
+echo "Gemini identified these files:"
+printf '%s\n' "$FILE_LIST"
+
+# Safe, space-tolerant iteration
+mapfile -t FILES < <(printf '%s\n' "$FILE_LIST")
 ```
 
 ### Step 4: Execute Pass 2 (Claude as Synthesizer)
@@ -192,11 +203,14 @@ This is your primary role. Read the full content of the identified files to buil
 # Announce what you are doing for transparency.
 echo "Now reading the full content of each identified file to build a deep understanding..."
 
-# You will now iterate through the FILE_LIST and read each one.
-# For each file in FILE_LIST:
-#   - Verify the file exists (e.g., if [ -f "$file" ]; then ...).
-#   - Read its full content into your working memory.
-#   - Announce: "Reading: `path/to/file.ext`..."
+for file in "${FILES[@]}"; do
+  if [ -f "$file" ]; then
+    echo "Reading: $file"
+    # cat "$file"  # or your ingestion logic
+  else
+    echo "WARN: Not found: $file"
+  fi
+done
 
 # After reading all files, you are ready to synthesize the answer.
 ```
