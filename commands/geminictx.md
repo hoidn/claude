@@ -11,66 +11,65 @@
 ## 🔴 **CRITICAL: MANDATORY EXECUTION FLOW**
 
 **This command follows a deliberate, non-negotiable two-pass workflow:**
-1.  **Context Aggregation:** You MUST first run `repomix` to create a complete snapshot of the codebase.
-2.  **Pass 1 (Gemini as Context Locator):** You MUST build a structured prompt file and execute `gemini -p` to identify a list of relevant files based on the user's query and the `repomix` context.
-3.  **Pass 2 (Claude as Synthesizer):** You MUST then read the full content of EVERY file Gemini identified to build your own deep context before providing a synthesized answer.
+1.  **Setup:** You MUST create a clean, isolated temporary directory for all generated files.
+2.  **Context Aggregation:** You MUST run `repomix`, ensuring it ignores the temporary directory.
+3.  **Pass 1 (Gemini as Context Locator):** You MUST build a structured prompt file *inside the temporary directory* and execute `gemini -p`.
+4.  **Pass 2 (Claude as Synthesizer):** You MUST then read the full content of EVERY file Gemini identified to build your own deep context before providing a synthesized answer.
 
 **DO NOT:**
--   ❌ Skip the `repomix` step. The entire workflow depends on this complete context.
--   ❌ Guess which files are relevant. You must delegate this to Gemini.
--   ❌ Only read Gemini's one-sentence justifications. You must read the **full file contents**.
--   ❌ Answer the user's query before you have completed Pass 1 and read all identified files in Pass 2.
+-   ❌ Create any temporary files or prompts in the project's root directory.
+-   ❌ Skip the `repomix` step.
+-   ❌ Answer the user's query before completing both passes.
 
 ---
 
 ## 🤖 **YOUR EXECUTION WORKFLOW**
 
-### Step 1: Gather Codebase Context with Repomix
+### Step 1: Setup and Context Aggregation
 
-First, create a comprehensive and reliable context snapshot of the entire project.
+Create an isolated environment for this run's artifacts and then generate the codebase context.
 
 ```bash
 # The user's query is passed as $ARGUMENTS
 USER_QUERY="$ARGUMENTS"
+# Create a unique, isolated directory for this run's artifacts to prevent context pollution.
+TEMP_DIR="./tmp/geminictx_run_$(date +%s)"
+mkdir -p "$TEMP_DIR"
+echo "INFO: Using temporary directory: $TEMP_DIR"
 
 # Use repomix for a complete, single-file context snapshot.
-# This is more robust than a long list of @-references.
-# TODO: manually removing gemini-pass1-prompt.md is a temporary hack; we should have a principled way to exclude big .md files.
-rm gemini-pass1-prompt.md; npx repomix@latest . --top-files-len 20 --include "**/*.{js,py,md,sh,json,c,h}" --ignore "build/**,node_modules/**,dist/**,*.lock,.claude/**,PtychoNN/**,torch/**"
+# The --ignore flag for "tmp/**" is critical to prevent feedback loops.
+npx repomix@latest . --top-files-len 20 --include "**/*.{js,py,md,sh,json,c,h}" --ignore "build/**,node_modules/**,dist/**,*.lock,.claude/**,PtychoNN/**,torch/**,tmp/**" -o "$TEMP_DIR/repomix-output.xml"
 
 # Verify that the context was created successfully.
-if [ ! -s ./repomix-output.xml ]; then
+if [ ! -s "$TEMP_DIR/repomix-output.xml" ]; then
     echo "❌ ERROR: Repomix failed to generate the codebase context. Aborting."
     exit 1
 fi
 
-echo "✅ Codebase context aggregated into repomix-output.xml."
+echo "✅ Codebase context aggregated into $TEMP_DIR/repomix-output.xml."
 ```
 
 ### Step 2: Build and Execute Pass 1 (Gemini as Context Locator)
 
-Now, build a structured prompt in a file to ask Gemini to find the relevant files.
+Now, build a structured prompt in the isolated directory.
 
 #### Step 2.1: Build the Prompt File
 ```bash
-# Clean start for the prompt file
-rm -f ./gemini-pass1-prompt.md 2>/dev/null
+# Define the path for the prompt file inside our isolated directory.
+PROMPT_FILE="$TEMP_DIR/gemini-pass1-prompt.md"
 
-# Create the structured prompt using the v3.0 XML pattern
-cat > ./gemini-pass1-prompt.md << 'PROMPT'
+# Create the structured prompt using the new template.
+# This file contains the core instructions but no dynamic content yet.
+cat > "$PROMPT_FILE" << 'PROMPT'
 <task>
 You are an expert scientist and staff level engineer. Your sole purpose is to analyze the provided codebase context and identify the most relevant files for answering the user's query. Do not answer the query yourself.
 
 <steps>
 <0>
 Given the codebase context in `<codebase_context>`,
-in a <scratchpad>, list the paths of:
- - all source code files
- - all documentation files (all .md files that document the project's architecture and design, but not one-off files like session summaries)
- - all test files
- - all configuration files
- - all other relevant files
- </0>
+in a <scratchpad>, list the paths of all source code, documentation, test, and configuration files.
+</0>
 
 <1>
 Analyze the user's `<query>`.
@@ -80,90 +79,108 @@ REVIEW PROJECT DOCUMENTATION
  - Review all architecture.md and all other high-level architecture documents
  - **Understand the project structure** from these documents before diving into the code
 </1>
+
 <2>
-Think about the <query> and analyze the codebase to form a full understanding of it. Once you are confident in your understanding, review the `<codebase_context>` again to identify all files (source code, documentation, configs) that might be relevant to the query (if in doubt, err on the side of including more files).
+Think step-by-step about the user's query to form a complete understanding of the problem.
+- **Hypothesize**: Formulate potential root causes based on the query (e.g., is it a data corruption issue, a configuration error, a logic bug in a specific function, or a regression?).
+- **Investigate**: Use your hypotheses to guide a targeted analysis of the codebase, looking for evidence.
+- **Synthesize**: Form a complete theory of the problem, identifying the key components, their interactions, and the sequence of events that leads to the failure.
+- **Verify**: Review the `<codebase_context>` again to find specific evidence (code snippets, documentation, log messages) that confirms your theory.
 </2>
+
 <3>
 For each relevant file you identify, provide your output in the strict format specified in `<output_format>`.
 </3>
 </steps>
 
-<context>
-<query>
-[Placeholder for the user's query]
-</query>
-
-<codebase_context>
-<!-- Placeholder for content from repomix-output.xml -->
-</codebase_context>
-</context>
-
 <output_format>
-Your output must contain two sections:
-Section 1: A detailed analysis of all data flows, transformations, and component interactions relevant to the query. 
-Include mathematical formulas and diagrams where appropriate.
+Your output must contain the following sections in this exact order:
 
-Section 2:
-A list of entries. Each entry MUST follow this exact format, ending with three dashes on a new line.
+Section 0:
+A list of the at least 25 files that are most relevant to the query (or all files, if there are fewer than 25). Each entry must follow this exact format.
+
+FILE: [exact/path/to/file.ext]
+SCORE: [A numeric score from 0.4 to 10.0, where 10 is the most relevant.]
+
+Section 1: Thought Process
+A detailed, step-by-step analysis of your reasoning. This section should explicitly include:
+- **Initial Hypotheses**: What were your initial theories about the root cause of the problem?
+- **Key Evidence**: What specific code snippets, documentation excerpts, or file relationships from the codebase led you to your conclusion?
+- **Synthesized Root Cause**: A final, clear explanation of the chain of events causing the issue, referencing the key files involved.
+
+Section 2: Data Flow and Component Analysis
+A detailed analysis of all data flows, transformations, and component interactions relevant to the query.
+- **Diagrams**: Use Mermaid syntax (e.g., `graph TD` for data flow or `sequenceDiagram` for call flows) to illustrate the problematic workflow.
+- **Data Contracts**: Document critical data contracts in markdown tables. The table should include columns for: **Data**, **Source Component**, **Destination Component**, **Shape**, **Dtype**, and **Description**. Focus on the data being passed between the components you identified as most relevant.
+- **Formulas/Pseudocode**: Use mathematical formulas or pseudocode to clarify key physical models or data transformations (e.g., `Intensity = |FFT(Probe * Object_patch)|^2`).
+
+Section 3: Curated File List
+A curated list of final entries (i.e. a subset of the files in Section 0). Each entry MUST follow this exact format, ending with three dashes on a new line.
 
 FILE: [exact/path/to/file.ext]
 RELEVANCE: [A concise, one-sentence explanation of why this file is relevant.]
 SCORE: [A numeric score from 0.4 to 10.0, where 10 is the most relevant.]
 ---
 
-Do not include any other text, conversation, or summaries in your response. Do 
-not use tools. Your job is to do analysis, not an intervention
+Do not use tools. Your job is to do analysis, not an intervention.
 </output_format>
+
+<instructions>
+think hard before you answer.
+</instructions>
 </task>
 PROMPT
 ```
 
-#### Step 2.2: Append Dynamic Context (Corrected Logic)
+#### Step 2.2: Append Dynamic Context
 ```bash
-# This script injects the dynamic content into the prompt template using
-# idempotent `sed` commands to prevent context duplication bugs.
+# Now, append the dynamic content (user query and repomix context) to the prompt file.
+# This append-only method is robust and follows the new template structure.
 
-# Inject the user's query by replacing its placeholder.
-# Using a temp file handles special characters and multi-line input safely.
-echo "$USER_QUERY" > ./tmp/user_query.txt
-sed -i.bak -e '/\[Placeholder for the user.s query\]/r ./tmp/user_query.txt' -e '//d' ./gemini-pass1-prompt.md
+# Append the user query, wrapped in tags
+echo -e "\n<query>\n$USER_QUERY\n</query>\n" >> "$PROMPT_FILE"
 
-# **CRITICAL FIX:** Atomically replace the codebase context placeholder.
-# This robust method prevents the repomix output from being appended multiple
-# times if the command is re-run or misinterpreted by the agent.
-sed -i.bak -e '/<!-- Placeholder for content from repomix-output.xml -->/r ./repomix-output.xml' -e '//d' ./gemini-pass1-prompt.md
+# Append the full codebase context, wrapped in tags
+echo -e "<codebase_context>\n" >> "$PROMPT_FILE"
+cat "$TEMP_DIR/repomix-output.xml" >> "$PROMPT_FILE"
+echo -e "\n</codebase_context>" >> "$PROMPT_FILE"
 
-# Clean up backup files created by sed
-rm -f ./gemini-pass1-prompt.md.bak
-
-echo "✅ Built structured prompt for Pass 1: ./gemini-pass1-prompt.md"
+echo "✅ Built final structured prompt for Pass 1: $PROMPT_FILE"
 ```
 
 #### Step 2.3: Execute Gemini
-IMPORTANT: do NOT use a timeout for the gemini command. Gemini may need more than 1 minute to process the large context.
 ```bash
 # Execute Gemini with the single, clean prompt file.
-gemini -p "@./gemini-pass1-prompt.md > ./tmp/gemini-pass1-response.txt"
+# The response is saved to a file for reliable parsing.
+GEMINI_RESPONSE_FILE="$TEMP_DIR/gemini-pass1-response.txt"
+gemini -p "@$PROMPT_FILE" > "$GEMINI_RESPONSE_FILE"
+
+if [ ! -s "$GEMINI_RESPONSE_FILE" ]; then
+    echo "❌ ERROR: Gemini command failed or produced no output."
+    exit 1
+fi
 ```
 
 ### Step 3: Process Gemini's Response & Prepare for Pass 2
 
-After receiving the list of files from Gemini, parse the output and prepare to read the files.
+Parse the response file from the temporary directory.
 
 ```bash
-# [You will receive Gemini's response, e.g., captured in $GEMINI_RESPONSE]
+# Read the response from the output file.
+GEMINI_RESPONSE=$(cat "$GEMINI_RESPONSE_FILE")
 
-# Parse the output to get a clean list of file paths.
-# This is a robust way to extract just the file paths for the next step.
-FILE_LIST=$(echo "$GEMINI_RESPONSE" | grep '^FILE: ' | sed 's/^FILE: //')
+# **CRITICAL:** Parse only the files from "Section 3" of the response.
+# This awk script starts capturing when it sees the "Section 3" header
+# and then extracts the file path from any line starting with "FILE:".
+FILE_LIST=$(awk '/^Section 3: Curated File List/{flag=1; next} flag && /^FILE: / {print $2}' "$GEMINI_RESPONSE_FILE")
 
 # Verify that Gemini returned relevant files.
 if [ -z "$FILE_LIST" ]; then
-    echo "⚠️ Gemini did not identify any specific files for your query. I will attempt to answer based on general project knowledge, but the answer may be incomplete."
+    echo "⚠️ Gemini did not identify any specific files in Section 3 of its response. The analysis may be incomplete."
     exit 0
 fi
 
-echo "Gemini identified the following relevant files:"
+echo "Gemini identified the following relevant files for analysis:"
 echo "$FILE_LIST"
 ```
 
@@ -224,13 +241,3 @@ Here is a synthesized analysis of how they work together to address your questio
 ### Conclusion
 [End with a concluding thought or a question to guide the user's next step.]
 ```
-
----
-### Design Rationale & Best Practices
-
-The logic in **Step 2.2** was specifically updated to use `sed` for injecting the `repomix` context. The previous method of using `echo ... >>` and `cat ... >>` was not **idempotent**, meaning running it multiple times would append the context repeatedly, leading to a corrupted prompt.
-
-The corrected `sed -i.bak -e '/<placeholder>/r <file>' -e '//d' <prompt_file>` pattern is the standard for this project because:
-1.  **It is atomic:** It finds and replaces the placeholder in one operation.
-2.  **It is idempotent:** If the command is run again, the placeholder no longer exists, so no further changes are made.
-3.  **It is unambiguous:** It provides a single, clear instruction to the agent, reducing the chance of misinterpretation.
