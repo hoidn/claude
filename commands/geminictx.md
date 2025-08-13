@@ -64,6 +64,7 @@ PROMPT_FILE="$TEMP_DIR/gemini-pass1-prompt.md"
 cat > "$PROMPT_FILE" << 'PROMPT'
 <task>
 You are an expert scientist and staff level engineer. Your sole purpose is to analyze the provided codebase context and identify the most relevant files for answering the user's query. Do not answer the query yourself.
+</task>
 
 <steps>
 <0>
@@ -128,7 +129,6 @@ Do not use tools. Your job is to do analysis, not an intervention.
 <instructions>
 think hard before you answer.
 </instructions>
-</task>
 PROMPT
 ```
 
