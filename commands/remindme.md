@@ -1,3 +1,7 @@
+- standardize dir structure with subdirs for things like session 
+  histories. need better conventions when each type of doc is saved to and 
+  accessed, and what to keep under version control, and what to include in 
+  repomix bundles
 - write a validate-plan-gemini command (long running webui sesssions etc
 - add a spec generation step to the initiative workflow, something like <this>
 - close the loop with linting and unit tests
