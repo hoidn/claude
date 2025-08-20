@@ -1,3 +1,4 @@
+- write a validate-plan-gemini command (long running webui sesssions etc
 - add a spec generation step to the initiative workflow, something like <this>
 - close the loop with linting and unit tests
 - zen mcp
@@ -5,6 +6,7 @@
   - https://github.com/acoliver/vibetools/blob/main/executor/plans/PLAN.md
   - https://github.com/acoliver/vibetools/tree/main/executor/scripts
   - https://github.com/acoliver/llxprt-code/tree/main/project-plans/prompt-config/plan
+- experiment with more manual styles where I stub out comments directly or with todos 
 
 <this>
 "One fantastic tip I discovered (sorry I've forgotten who wrote it but probably a fellow HNer):
