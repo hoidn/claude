@@ -38,7 +38,7 @@ First, create a complete snapshot of the project for Gemini to analyze. This use
 # The user's high-level objective is in $ARGUMENTS
 npx repomix@latest . \
   --include "ptycho/**/*.py,*.md,docs/**/*.md,.claude/**/*.md,plans/active/**/*.md" \
-  -i "**/*.ipynb,build/**,node_modules/**,dist/**,*.lock,**/review_request*.md,plans/archive/**,plans/examples/**,tensorflow/**,tmp/**"
+  -i "**/*.ipynb,build/**,node_modules/**,dist/**,*.lock,**/review_request*.md,plans/archive/**,plans/examples/**,tensorflow/**,tmp/**,.claude/**"
 
 if [ ! -s ./repomix-output.xml ]; then
     echo "❌ ERROR: Repomix failed to generate the codebase context. Aborting."
