@@ -152,6 +152,7 @@ Here is an example of the expected quality and detail for a single module entry 
 </gold_standard_example>
 EOF
 
+echo "</task>" >> ./tmp/doc-plan-prompt.md
 # --- Step 4: Add the opening tag for the codebase context ---
 echo "<codebase_context>" >> ./tmp/doc-plan-prompt.md
 
@@ -160,24 +161,22 @@ cat ./repomix-output.xml >> ./tmp/doc-plan-prompt.md
 
 # --- Step 6: Append the closing tags to finalize the prompt file ---
 echo "</codebase_context>" >> ./tmp/doc-plan-prompt.md
-echo "</task>" >> ./tmp/doc-plan-prompt.md
 
 echo "✅ Successfully built structured prompt file: ./tmp/doc-plan-prompt.md"
 ```
 
 #### **Step 1.C: Execute Gemini Analysis**
 
-Run Gemini with the prompt file to generate the prioritized module list and dependency report.
-
+Run Gemini with the prompt file to generate the prioritized module list and dependency report. DO NOT USE A TIMEOUT.  This command may take more than one minute to run.
 ```bash
 # Execute Gemini with the fully-formed prompt file and capture response
-GEMINI_RESPONSE=$(gemini -p "@./tmp/doc-plan-prompt.md") || {
+GEMINI_RESPONSE=$(gemini -p "carefully complete the <task> in @$(pwd)/tmp/doc-plan-prompt.md") || {
     echo "❌ ERROR: Gemini command failed"
     exit 1
 }
 
 # Save the raw response for debugging if needed
-echo "$GEMINI_RESPONSE" > ./gemini_response_raw.txt
+echo "$GEMINI_RESPONSE" > ./tmp/gemini_response_raw.txt
 ```
 
 #### **Step 1.D: Create State Files from Gemini's Output**
@@ -191,7 +190,7 @@ Parse Gemini's structured response to create the three state files that will gui
 awk '/---PRIORITIZED_MODULES_START---/,/---PRIORITIZED_MODULES_END---/' ./gemini_response_raw.txt | sed '1d;$d' > modules_prioritized.txt
 
 # Create dependency_report.txt
-awk '/---DEPENDENCY_REPORT_START---/,/---DEPENDENCY_REPORT_END---/' ./gemini_response_raw.txt | sed '1d;$d' > dependency_report.txt
+awk '/---IMPORTANT!!!! DEPENDENCY_REPORT_START---/,/---DEPENDENCY_REPORT_END IMPORTANT!!!! ---/' ./gemini_response_raw.txt | sed '1d;$d' > dependency_report.txt
 
 # Verify that the files were created
 if [ ! -s modules_prioritized.txt ]; then
