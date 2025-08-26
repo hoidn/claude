@@ -151,9 +151,10 @@ echo "✅ Built final structured prompt for Pass 1: $PROMPT_FILE"
 #### Step 2.3: Execute Gemini
 ```bash
 # Execute Gemini with the single, clean prompt file.
+# DO NOT USE A TIMEOUT. This command may take more than one minute to run.
 # The response is saved to a file for reliable parsing.
 GEMINI_RESPONSE_FILE="$TEMP_DIR/gemini-pass1-response.txt"
-gemini -p "@$PROMPT_FILE" > "$GEMINI_RESPONSE_FILE"
+gemini -p "carefully complete the <task> in @$PROMPT_FILE" > "$GEMINI_RESPONSE_FILE"
 
 if [ ! -s "$GEMINI_RESPONSE_FILE" ]; then
     echo "❌ ERROR: Gemini command failed or produced no output."
