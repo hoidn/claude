@@ -1,3 +1,5 @@
+- improve the rd plan with things like data flow analysis, component interface definitions, basically better specs / understanding of the existing and new components and how they interact 
+- think about whether to reintroduce idls. 
 - standardize dir structure with subdirs for things like session 
   histories. need better conventions when each type of doc is saved to and 
   accessed, and what to keep under version control, and what to include in 
