@@ -2,6 +2,10 @@
 
 "
 - emph: always have to tell it to NOT think about this like a traditional engineering team plan, this is a senior engineer and LLM code agent working together, think only about technical architecture, otherwise you get "phase 1 (1-2 weeks), phase 2 (2-4 weeks), step a (4-8 hours)" sort of nonsense timelines in your plan.
+- context7 mcp
+- review https://news.ycombinator.com/item?id=45107962
+- https://github.com/wshobson/commands/
+- git@github.com:wshobson/agents.git
 - improve the rd and implementation plan with things like data flow analysis, component interface definitions, basically better specs / understanding of the existing and new components and how they interact 
 - think about whether to reintroduce idls. 
 - standardize dir structure with subdirs for things like session 
