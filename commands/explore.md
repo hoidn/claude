@@ -25,14 +25,14 @@
 
 **DO NOT:**
 -   ❌ Answer the user's query with your own pre-existing knowledge. You must run the full two-phase workflow.
--   ❌ Blend the roles of the two agents. The Researcher only gathers; the Synthesizer only analyzes the gathered data.
--   ❌ Allow the Researcher to make any code changes. It is a read-only agent.
+-   ❌ Blend the roles of the two subagents. The Researcher only gathers; the Synthesizer only analyzes the gathered data.
+-   ❌ Allow the Researcher to make any code changes. It is a read-only subagent.
 
 ---
 
 ## 🤖 **AGENTIC WORKFLOW**
 
-### **Phase 1: Exploration (The "Researcher" Agent)**
+### **Phase 1: Exploration (The "Researcher" subagent)**
 
 **Input:** `<topic>`, `--depth` flag
 **Goal:** To find and extract every piece of relevant information about the topic from the codebase and package it for the next phase.
@@ -43,7 +43,7 @@
 | 1.B | **Multi-Vector Information Gathering** | `[ ]` | **Why:** To build a complete picture by searching across different types of project artifacts. <br> **How:** Systematically perform the following searches using your keywords and seed paths: <br> 1.  **Code Search (`grep`):** Find all occurrences of keywords in source code (`.py`, `.sh`). <br> 2.  **Documentation Search (`grep`):** Find all occurrences in documentation (`.md`). <br> 3.  **Test Search (`grep`):** Find all relevant tests (`test_*.py`) to understand usage and expected behavior. <br> 4.  **Dependency Analysis (`pydeps` or similar):** If the topic is a file, find all files that import it (consumers) and all files it imports (dependencies). Trace this to the level specified by `--depth`. |
 | 1.C | **Context Package Assembly** | `[ ]` | **Why:** To create a structured, self-contained bundle of raw information for the Synthesizer agent. <br> **Output:** A single structured data object (e.g., JSON or XML) containing: <br> - `topic`: The original user query. <br> - `primary_files`: A list of file paths that are *directly* related. <br> - `related_files`: A list of consumers, dependencies, and relevant test files. <br> - `code_snippets`: A collection of the most relevant functions or classes found. <br> - `doc_excerpts`: Key paragraphs or sections from documentation. <br> - `test_examples`: The most illustrative test cases showing usage. |
 
-### **Phase 2: Synthesis (The "Synthesizer" Agent)**
+### **Phase 2: Synthesis (The "Synthesizer" subagent)**
 
 **Input:** The "Context Package" from Phase 1, `--focus` flag, `--output-format` flag.
 **Goal:** To transform the raw information from the Context Package into a clean, insightful, and human-readable knowledge artifact.

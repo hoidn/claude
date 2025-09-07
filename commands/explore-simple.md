@@ -1,5 +1,5 @@
 
-**Goal:** Comprehensive exploration of a codebase topic via two-agent research relay.
+**Goal:** Comprehensive exploration of a codebase topic via two-subagent research relay.
 
 **Usage:** `/explore ptycho/raw_data.py` | `/explore "authentication workflow"`
 
@@ -10,13 +10,13 @@
 
 ## Workflow
 
-### Phase 1: Research Agent
+### Phase 1: Research subagent
 Gathers all relevant information about the topic:
 - Extracts keywords and identifies seed paths
 - Searches code, docs, tests, and dependencies
 - Packages findings into structured Context Package
 
-### Phase 2: Synthesizer Agent  
+### Phase 2: Synthesizer subagent  
 Transforms Context Package into final report:
 - Assimilates all gathered information
 - Applies focus lens (api/data/performance)
