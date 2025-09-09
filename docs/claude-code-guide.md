@@ -8,15 +8,21 @@
 2. [Installation & Setup](#installation--setup)
 3. [Core Features & Capabilities](#core-features--capabilities)
 4. [Common Workflows](#common-workflows)
-5. [Subagents](#subagents)
-6. [Output Styles](#output-styles)
-7. [Hooks](#hooks)
-8. [GitHub Actions Integration](#github-actions-integration)
-9. [Model Context Protocol (MCP)](#model-context-protocol-mcp)
-10. [SDK Development](#sdk-development)
-11. [Enterprise Deployment](#enterprise-deployment)
-12. [Troubleshooting](#troubleshooting)
-13. [Best Practices](#best-practices)
+5. [Anthropic's Proven Workflows](#anthropics-proven-workflows)
+6. [How Anthropic Teams Use Claude Code](#how-anthropic-teams-use-claude-code)
+7. [Slash Commands Reference](#slash-commands-reference)
+8. [CLI Reference](#cli-reference)
+9. [IDE Integrations](#ide-integrations)
+10. [Settings & Configuration](#settings--configuration)
+11. [Subagents](#subagents)
+12. [Output Styles](#output-styles)
+13. [Hooks](#hooks)
+14. [GitHub Actions Integration](#github-actions-integration)
+15. [Model Context Protocol (MCP)](#model-context-protocol-mcp)
+16. [SDK Development](#sdk-development)
+17. [Enterprise Deployment](#enterprise-deployment)
+18. [Troubleshooting](#troubleshooting)
+19. [Best Practices](#best-practices)
 
 ---
 
@@ -259,6 +265,669 @@ For challenging problems requiring deep reasoning:
 > think deeply about the architecture for a real-time notification system
 > keep thinking about how to optimize this algorithm
 > think a lot about potential edge cases in this payment flow
+```
+
+**Thinking Mode Trigger Words** (progressively more thinking budget):
+- `think` - Basic extended thinking
+- `think hard` - More computational resources
+- `think harder` - Extensive reasoning
+- `ultrathink` - Maximum thinking capability
+
+---
+
+## Anthropic's Proven Workflows
+
+### Overview
+
+These workflows have been developed and refined by Anthropic's engineering teams through extensive internal use of Claude Code.
+
+### 1. Explore, Plan, Code, Commit Workflow
+
+**Step 1: Explore**
+```bash
+> what files are related to authentication?
+> show me how the payment processing works
+> where is the database connection configured?
+```
+
+**Step 2: Plan**
+```bash
+> think hard about how to implement OAuth 2.0 in this system
+> create a detailed plan for refactoring the user service
+```
+
+**Step 3: Code**
+```bash
+> implement the OAuth flow based on our plan
+> refactor the user service following the plan
+```
+
+**Step 4: Commit**
+```bash
+> commit these changes with a descriptive message
+> create a PR with comprehensive description
+```
+
+### 2. Test-Driven Development (TDD) Workflow
+
+```bash
+# 1. Write tests first
+> write comprehensive tests for a user authentication service
+
+# 2. Confirm tests fail
+> run the tests to confirm they fail
+
+# 3. Implement minimal code to pass
+> implement just enough code to make the tests pass
+
+# 4. Refactor with confidence
+> refactor the implementation while keeping tests green
+```
+
+### 3. Visual Iteration Workflow
+
+Perfect for UI development:
+
+```bash
+# 1. Provide design mock
+> here's a screenshot of the desired UI [paste image]
+
+# 2. Initial implementation
+> implement this design using our component library
+
+# 3. Take screenshot of result
+> take a screenshot of the current implementation
+
+# 4. Iterate
+> adjust the spacing and colors to match the mock better
+```
+
+### 4. Parallel Development with Git Worktrees
+
+```bash
+# Set up worktrees for parallel tasks
+> create a git worktree for the authentication feature
+> create another worktree for the payment integration
+
+# Work on multiple features simultaneously
+# Each Claude instance works in isolation
+```
+
+### 5. Multi-Instance Verification
+
+```bash
+# Instance 1: Implementation
+> implement the complex sorting algorithm
+
+# Instance 2: Verification
+> review this implementation for correctness and edge cases
+
+# Instance 3: Performance testing
+> write performance benchmarks for this algorithm
+```
+
+### 6. Customizing with CLAUDE.md
+
+**Essential CLAUDE.md Elements**:
+
+```markdown
+# Project Guidelines
+
+## Quick Commands
+- Run tests: `npm test`
+- Build: `npm run build`
+- Deploy staging: `./scripts/deploy-staging.sh`
+
+## Code Style
+- Use functional components with hooks
+- Prefer composition over inheritance
+- All async functions must have error handling
+
+## Architecture Decisions
+- We use PostgreSQL with Prisma ORM
+- Authentication via JWT tokens
+- State management with Zustand
+
+## Known Issues
+- The legacy API client in `/src/api/v1` is deprecated
+- Use `/src/api/v2` for all new features
+```
+
+### 7. Course Correction Techniques
+
+**Early Intervention**:
+```bash
+# If Claude goes off track
+> stop, let's approach this differently
+> actually, focus on just the authentication part first
+> /clear  # Start fresh when needed
+```
+
+**Multiple Input Methods**:
+```bash
+# Combine different data sources
+> here's the error message [paste]
+> and here's a screenshot of the issue [image]
+> the logs show this pattern [paste logs]
+```
+
+---
+
+## How Anthropic Teams Use Claude Code
+
+### Engineering Teams
+
+#### Infrastructure Team
+- **Use Case**: Understanding complex data pipelines
+- **Workflow**: Read CLAUDE.md → Ask about specific components → Implement changes
+- **Result**: Rapid onboarding to unfamiliar systems
+
+#### Security Engineering
+- **Use Case**: Incident response and vulnerability analysis
+- **Workflow**: Trace control flow → Identify attack vectors → Generate fixes
+- **Result**: 80% reduction in research time
+
+#### Product Engineering
+- **Use Case**: Bug fixes in unfamiliar codebases
+- **Workflow**: Describe bug → Claude identifies files → Implements fix with tests
+- **Result**: Confidence in modifying complex systems
+
+### Non-Technical Teams
+
+#### Product Design
+- **Use Case**: Building functional prototypes
+- **Workflow**: Describe feature → Claude implements → Iterate visually
+- **Result**: Designers ship production features independently
+
+#### Data Science
+- **Use Case**: Creating React visualizations
+- **Workflow**: Provide data → Describe visualization → Claude builds components
+- **Result**: No deep TypeScript knowledge required
+
+#### Growth Marketing
+- **Use Case**: Generating ad variations
+- **Workflow**: Define template → Claude creates variations → A/B test
+- **Result**: Automated creative generation
+
+#### Legal Team
+- **Use Case**: Building automation tools
+- **Workflow**: Describe process → Claude builds prototype → Iterate
+- **Result**: Custom "phone tree" systems without coding
+
+### Key Insights from Anthropic's Usage
+
+1. **Context is King**: CLAUDE.md files dramatically improve effectiveness
+2. **Start Small**: Begin with codebase Q&A before attempting changes
+3. **Trust but Verify**: Use multiple instances for critical code
+4. **Non-Technical Empowerment**: Claude Code dissolves technical barriers
+5. **Research Acceleration**: 80% time savings on investigation tasks
+
+---
+
+## Slash Commands Reference
+
+### Built-in Commands
+
+| Command | Description | Usage |
+|---------|-------------|-------|
+| `/add-dir` | Add additional working directories | `/add-dir /path/to/directory` |
+| `/agents` | Manage custom AI subagents | `/agents` |
+| `/bug` | Report bugs to Anthropic | `/bug [description]` |
+| `/clear` | Clear conversation history | `/clear` |
+| `/compact` | Compact conversation context | `/compact [focus_area]` |
+| `/config` | View/modify configuration | `/config` or `/config --global` |
+| `/cost` | Show token usage and costs | `/cost` |
+| `/doctor` | Check installation health | `/doctor` |
+| `/help` | Get usage help | `/help` |
+| `/init` | Initialize project with CLAUDE.md | `/init` |
+| `/install-github-app` | Set up GitHub integration | `/install-github-app` |
+| `/login` | Switch Anthropic accounts | `/login` |
+| `/logout` | Sign out of account | `/logout` |
+| `/mcp` | Manage MCP servers | `/mcp list` or `/mcp auth [server]` |
+| `/memory` | Edit CLAUDE.md files | `/memory` |
+| `/model` | Select or change AI model | `/model` |
+| `/output-style` | Change output style | `/output-style [style]` |
+| `/permissions` | View/update access permissions | `/permissions` |
+| `/pr_comments` | View PR comments | `/pr_comments` |
+| `/review` | Request code review | `/review` |
+| `/status` | View account and system status | `/status` |
+| `/terminal-setup` | Install key bindings | `/terminal-setup` |
+| `/vim` | Enter vim mode | `/vim` |
+
+### Custom Slash Commands
+
+#### Creating Project Commands
+
+```bash
+# Create command directory
+mkdir -p .claude/commands
+
+# Create simple command
+echo "Analyze this code for security issues:" > .claude/commands/security.md
+
+# Create command with arguments
+cat > .claude/commands/test.md << 'EOF'
+---
+name: test
+description: Run tests with options
+---
+
+Run the test suite with these parameters: $ARGUMENTS
+Focus on: $1
+Verbose mode: $2
+EOF
+```
+
+#### Creating User Commands
+
+```bash
+# User-level commands (available across projects)
+mkdir -p ~/.claude/commands
+echo "Generate comprehensive documentation:" > ~/.claude/commands/document.md
+```
+
+#### Command with Frontmatter
+
+```markdown
+---
+name: optimize
+description: Optimize code for performance
+tags: [performance, optimization]
+---
+
+Analyze the following code for performance bottlenecks:
+- Memory usage
+- Time complexity
+- Database queries
+- Caching opportunities
+
+File: @$1
+```
+
+### MCP Server Commands
+
+MCP servers can add their own slash commands:
+
+```bash
+# Format: /mcp__[server]__[command]
+/mcp__github__create_issue
+/mcp__linear__list_tickets
+/mcp__postgres__query
+```
+
+---
+
+## CLI Reference
+
+### Basic Commands
+
+```bash
+# Start interactive REPL
+claude
+
+# Start with initial prompt
+claude "explain this codebase"
+
+# Non-interactive query
+claude -p "fix the type errors"
+
+# Pipe input
+cat error.log | claude -p "diagnose these errors"
+
+# Continue most recent conversation
+claude -c
+claude --continue
+
+# Resume specific session
+claude -r "550e8400-e29b-41d4" "continue the refactoring"
+claude --resume "550e8400-e29b-41d4"
+
+# Update Claude Code
+claude update
+```
+
+### Configuration Flags
+
+| Flag | Description | Example |
+|------|-------------|---------|
+| `--add-dir` | Add working directories | `--add-dir /path/to/dir` |
+| `--allowedTools` | Specify allowed tools | `--allowedTools "Read,Grep"` |
+| `--disallowedTools` | Block specific tools | `--disallowedTools "Bash,Edit"` |
+| `--model` | Set AI model | `--model claude-3-5-sonnet` |
+| `--max-turns` | Limit conversation turns | `--max-turns 5` |
+| `--permission-mode` | Set permission mode | `--permission-mode acceptEdits` |
+| `--output-format` | Output format | `--output-format json` |
+| `--verbose` | Enable detailed logging | `--verbose` |
+| `--cwd` | Set working directory | `--cwd /project/path` |
+| `--system-prompt` | Override system prompt | `--system-prompt "You are..."` |
+| `--append-system-prompt` | Add to system prompt | `--append-system-prompt "Also..."` |
+
+### Output Formats
+
+```bash
+# Text output (default)
+claude -p "explain the architecture"
+
+# JSON output
+claude -p "analyze dependencies" --output-format json
+
+# Streaming JSON
+claude -p "refactor this code" --output-format stream-json
+```
+
+### Permission Modes
+
+```bash
+# Ask for permission (default)
+claude -p "fix bugs" --permission-mode ask
+
+# Auto-accept file edits
+claude -p "refactor" --permission-mode acceptEdits
+
+# Auto-accept all actions
+claude -p "implement feature" --permission-mode acceptAll
+
+# Dangerous: skip all permissions
+claude -p "urgent fix" --dangerously-skip-permissions
+```
+
+### Scripting Examples
+
+```bash
+#!/bin/bash
+# Automated code review
+review_pr() {
+    local pr_diff="$(git diff main...HEAD)"
+    echo "$pr_diff" | claude -p "Review this code for:
+        - Security issues
+        - Performance problems
+        - Best practices
+        - Test coverage" \
+        --output-format json \
+        --allowedTools "Read,Grep"
+}
+
+# Continuous monitoring
+tail -f application.log | claude -p "Alert on errors or anomalies" \
+    --allowedTools "WebSearch" \
+    --max-turns 100
+```
+
+### Configuration Management
+
+```bash
+# List all configuration
+claude config list
+
+# Get specific setting
+claude config get model
+
+# Set configuration value
+claude config set model claude-3-5-sonnet
+
+# Add to array configuration
+claude config add allowedTools "WebSearch"
+
+# Remove from array
+claude config remove disallowedTools "Edit"
+```
+
+---
+
+## IDE Integrations
+
+### Visual Studio Code
+
+#### Installation
+
+```bash
+# Run in VS Code integrated terminal
+claude
+```
+
+#### Features
+
+- **Quick Launch**: `Cmd+Esc` (Mac) or `Ctrl+Esc` (Windows/Linux)
+- **File References**: `Cmd+Option+K` (Mac) or `Ctrl+Alt+K` (Windows/Linux)
+- **Auto-context**: Current file/selection automatically shared
+- **Diff Viewing**: See changes inline
+- **Terminal Integration**: Full CLI access
+
+#### Supported VS Code Variants
+
+- Visual Studio Code
+- Cursor
+- Windsurf
+- VSCodium
+- Code - OSS
+
+### JetBrains IDEs
+
+#### Supported IDEs
+
+- IntelliJ IDEA
+- PyCharm
+- WebStorm
+- PhpStorm
+- GoLand
+- Android Studio
+- RubyMine
+- CLion
+
+#### Installation
+
+**Option 1: Plugin Marketplace**
+1. Open IDE Settings/Preferences
+2. Navigate to Plugins
+3. Search for "Claude Code"
+4. Install and restart
+
+**Option 2: Terminal**
+```bash
+# Run in IDE integrated terminal
+claude
+```
+
+#### Features
+
+- **Quick Launch**: Configurable shortcut
+- **Diff Viewing**: Inline change visualization
+- **Error Sharing**: Share diagnostic errors directly
+- **Project Context**: Automatic project awareness
+- **Refactoring Integration**: Works with IDE refactoring tools
+
+### Terminal Emulators
+
+#### Supported Terminals
+
+- iTerm2 (macOS)
+- Terminal.app (macOS)
+- Windows Terminal
+- Alacritty
+- Kitty
+- WezTerm
+- Hyper
+
+#### Key Bindings Setup
+
+```bash
+# Install terminal key bindings
+claude
+/terminal-setup
+```
+
+### Vim Integration
+
+```bash
+# Enter vim mode
+/vim
+
+# Or configure in .vimrc
+:!claude -p "explain this function"
+```
+
+---
+
+## Settings & Configuration
+
+### Configuration Hierarchy
+
+Settings are applied in this order (highest priority first):
+
+1. **Enterprise Managed Settings**
+   - macOS: `/Library/Application Support/ClaudeCode/managed-settings.json`
+   - Linux/WSL: `/etc/claude-code/managed-settings.json`
+   - Windows: `C:\ProgramData\ClaudeCode\managed-settings.json`
+
+2. **Command Line Arguments**
+   ```bash
+   claude --model claude-3-5-sonnet --max-turns 10
+   ```
+
+3. **Local Project Settings**
+   ```
+   .claude/settings.local.json  # Personal, not in git
+   ```
+
+4. **Shared Project Settings**
+   ```
+   .claude/settings.json  # Team settings, in git
+   ```
+
+5. **User Settings**
+   ```
+   ~/.claude/settings.json  # Personal defaults
+   ```
+
+### Configuration File Structure
+
+```json
+{
+  "model": "claude-3-5-sonnet-20241022",
+  "maxTurns": 10,
+  "permissionMode": "ask",
+  "allowedTools": ["Read", "Edit", "Bash", "WebSearch"],
+  "disallowedTools": ["Write"],
+  "env": {
+    "ANTHROPIC_API_KEY": "${ANTHROPIC_API_KEY}",
+    "DATABASE_URL": "postgresql://localhost/mydb"
+  },
+  "hooks": {
+    "PostToolUse": {
+      "Edit": "prettier --write ${file_path}"
+    }
+  },
+  "mcpServers": {
+    "github": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-github"],
+      "env": {
+        "GITHUB_TOKEN": "${GITHUB_TOKEN}"
+      }
+    }
+  },
+  "customInstructions": "Always use TypeScript with strict mode",
+  "outputStyle": "explanatory",
+  "aws": {
+    "region": "us-east-1",
+    "authRefresh": "aws sso login --profile dev"
+  },
+  "permissions": {
+    "allow": [
+      {"tool": "Edit", "path": "src/**/*"},
+      {"tool": "Bash", "command": "npm*"}
+    ],
+    "deny": [
+      {"tool": "Edit", "path": "**/production/*"},
+      {"tool": "Bash", "command": "rm*"}
+    ],
+    "ask": [
+      {"tool": "Write", "path": "**/*.ts"}
+    ]
+  }
+}
+```
+
+### Environment Variables
+
+```bash
+# Core settings
+export ANTHROPIC_API_KEY="your-key"
+export ANTHROPIC_MODEL="claude-3-5-sonnet"
+export ANTHROPIC_SMALL_FAST_MODEL="claude-3-5-haiku"
+export CLAUDE_CODE_MAX_OUTPUT_TOKENS="4096"
+export MAX_THINKING_TOKENS="1024"
+
+# Provider configuration
+export CLAUDE_CODE_USE_BEDROCK="1"
+export CLAUDE_CODE_USE_VERTEX="1"
+export AWS_REGION="us-east-1"
+export ANTHROPIC_VERTEX_PROJECT_ID="project-id"
+
+# Network configuration
+export HTTPS_PROXY="https://proxy.company.com:8080"
+export NO_PROXY="localhost,127.0.0.1"
+
+# Advanced settings
+export ANTHROPIC_LOG="debug"
+export MCP_TIMEOUT="30000"
+export MAX_MCP_OUTPUT_TOKENS="50000"
+export DISABLE_PROMPT_CACHING="1"
+```
+
+### Managing Settings
+
+```bash
+# View current configuration
+claude config list
+
+# Set user-level setting
+claude config set model claude-3-5-sonnet
+
+# Set project-level setting
+claude config set --scope project maxTurns 5
+
+# Set local (private) setting
+claude config set --scope local env.DATABASE_URL "postgresql://localhost/dev"
+
+# Add to array setting
+claude config add allowedTools "WebFetch"
+
+# Remove from array setting
+claude config remove disallowedTools "Grep"
+```
+
+### Permission Configuration
+
+```json
+{
+  "permissions": {
+    "allow": [
+      {"tool": "Edit", "path": "src/**/*.ts"},
+      {"tool": "Bash", "command": "npm test"}
+    ],
+    "deny": [
+      {"tool": "*", "path": "**/.env*"},
+      {"tool": "Bash", "command": "sudo*"}
+    ],
+    "ask": [
+      {"tool": "Write"},
+      {"tool": "Bash", "command": "git push*"}
+    ]
+  }
+}
+```
+
+### Advanced AWS Configuration
+
+```json
+{
+  "aws": {
+    "region": "us-east-1",
+    "authRefresh": "aws sso login --profile dev",
+    "credentialExport": "aws sts assume-role --role-arn arn:aws:iam::123456789:role/dev"
+  }
+}
 ```
 
 ---
@@ -1299,4 +1968,3 @@ Report issues and feature requests: https://github.com/anthropics/claude-code/is
 ---
 
 *This comprehensive guide is based on official Claude Code documentation and represents best practices as of January 2025. For the most current information, always refer to the official documentation.*
-
