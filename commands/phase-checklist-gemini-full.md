@@ -156,7 +156,7 @@ echo "✅ Successfully built structured prompt file: ./tmp/checklist-prompt.md"
 ```
 
 ### Step 4: MANDATORY - Execute Gemini Analysis
-
+Execute this WITHOUT timeout. it may take more than a minute to complete:
 ```bash
 # Execute Gemini with the fully-formed prompt file
 GEMINI_RESPONSE=$(gemini -p "@./tmp/checklist-prompt.md")
