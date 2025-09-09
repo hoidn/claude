@@ -39,7 +39,7 @@ echo "INFO: Using temporary directory: $TEMP_DIR"
 
 # Use repomix for a complete, single-file context snapshot.
 # The --ignore flag for "tmp/**" is critical to prevent feedback loops.
-npx repomix@latest . --top-files-len 20 --include "**/*.{js,py,md,sh,json,c,h}" --ignore "build/**,node_modules/**,dist/**,*.lock,.claude/**,PtychoNN/**,torch/**,tmp/**" -o "$TEMP_DIR/repomix-output.xml"
+npx repomix@latest . --top-files-len 20 --include "**/*.{js,py,md,sh,json,c,h}" --ignore "build/**,node_modules/**,dist/**,*.lock,.claude/**,PtychoNN/**,torch/**,tmp/**,trash/**" -o "$TEMP_DIR/repomix-output.xml"
 
 # Verify that the context was created successfully.
 if [ ! -s "$TEMP_DIR/repomix-output.xml" ]; then
