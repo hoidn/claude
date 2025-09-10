@@ -283,6 +283,8 @@ main() {
         # Create the initial prompt structure using heredoc
         # Using 'PROMPT_TEMPLATE' as delimiter to avoid conflicts
         cat > "$PROMPT_FILE" << 'PROMPT_TEMPLATE'
+# TODO need better handholding on starting with CLAUDE.md and other proj docs, etc.
+# See geminictx.py/sh
 <task>
 You are an expert software engineer and architect tasked with analyzing a codebase to answer a specific question or complete a specific task.
 
