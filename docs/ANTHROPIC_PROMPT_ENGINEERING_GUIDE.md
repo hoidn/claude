@@ -14,8 +14,10 @@
 8. [Prefilling Responses](#prefilling-responses)
 9. [Prompt Chaining](#prompt-chaining)
 10. [Long Context Best Practices](#long-context-best-practices)
-11. [Advanced Techniques](#advanced-techniques)
-12. [Best Practices Summary](#best-practices-summary)
+11. [Experimental Prompt Tools API](#experimental-prompt-tools-api)
+12. [Testing and Evaluation](#testing-and-evaluation)
+13. [Advanced Techniques](#advanced-techniques)
+14. [Best Practices Summary](#best-practices-summary)
 
 ## Introduction
 
@@ -505,6 +507,134 @@ Then provide your analysis based on those quotes.
 - Use structured XML for multiple documents
 - Include source identification for traceability
 - Optimize placement for best performance
+
+## Experimental Prompt Tools API
+
+### Overview
+Anthropic offers experimental APIs for automated prompt generation and improvement (currently in closed research preview).
+
+### Generate Prompt API
+**Endpoint**: `/v1/experimental/generate_prompt`
+**Header Required**: `prompt-tools-2025-04-02`
+
+Automatically generates optimized prompts from task descriptions:
+- Applies advanced prompt engineering techniques
+- Creates structured prompts with examples
+- Adds appropriate roles and prefills
+- Can improve accuracy by up to 30%
+
+### Improve Prompt API
+**Endpoint**: `/v1/experimental/improve_prompt`
+
+Enhances existing prompts using techniques like:
+- Example enrichment
+- Instruction rewriting
+- Prefill addition
+- Role optimization
+- Structure improvement with XML tags
+
+### Implementation Example
+```python
+import anthropic
+
+client = anthropic.Anthropic()
+
+# Generate a new prompt
+response = client.post(
+    "/v1/experimental/generate_prompt",
+    headers={"anthropic-beta": "prompt-tools-2025-04-02"},
+    json={
+        "task_description": "Analyze customer feedback and categorize by sentiment",
+        "model": "claude-3-7-sonnet",
+        "examples": ["example feedback texts..."]
+    }
+)
+
+# Improve an existing prompt
+improved = client.post(
+    "/v1/experimental/improve_prompt",
+    headers={"anthropic-beta": "prompt-tools-2025-04-02"},
+    json={
+        "existing_prompt": "Your current prompt...",
+        "improvement_goals": ["consistency", "accuracy", "structure"]
+    }
+)
+```
+
+## Testing and Evaluation
+
+### Anthropic's Evaluation Framework
+
+#### Multidimensional Evaluation Criteria
+- **Task Fidelity**: Does output meet requirements?
+- **Consistency**: Are outputs uniform across similar inputs?
+- **Relevance**: Is all content pertinent?
+- **Coherence**: Is the output logically structured?
+- **Tone/Style**: Does it match desired voice?
+- **Privacy**: Is sensitive data protected?
+- **Context Utilization**: How well is context used?
+- **Latency**: Response time performance
+
+#### Quantitative Metrics
+- **Accuracy**: Correct vs incorrect outputs
+- **F1 Score**: Balance of precision and recall
+- **BLEU/ROUGE**: For text generation tasks
+- **Custom metrics**: Task-specific measurements
+
+### Testing Methodology
+
+#### 1. Create Test Sets
+```python
+test_cases = [
+    {
+        "input": "Sample input 1",
+        "expected_output": "Expected result 1",
+        "evaluation_criteria": ["accuracy", "tone"]
+    },
+    # More test cases...
+]
+```
+
+#### 2. A/B Testing Framework
+```python
+def ab_test_prompts(prompt_a, prompt_b, test_data):
+    results_a = []
+    results_b = []
+    
+    for test_case in test_data:
+        # Test prompt A
+        response_a = claude_call(prompt_a, test_case["input"])
+        results_a.append(evaluate(response_a, test_case))
+        
+        # Test prompt B
+        response_b = claude_call(prompt_b, test_case["input"])
+        results_b.append(evaluate(response_b, test_case))
+    
+    return compare_results(results_a, results_b)
+```
+
+#### 3. Edge Case Testing
+- Boundary conditions
+- Unusual inputs
+- Adversarial examples
+- Empty or null inputs
+- Maximum length inputs
+- Special characters and encoding
+
+#### 4. User Feedback Analysis
+- Collect real-world usage data
+- Analyze failure patterns
+- Identify improvement areas
+- Iterate based on feedback
+
+### Evaluation Best Practices
+1. **Start with clear success criteria**
+2. **Use diverse test sets**
+3. **Test edge cases extensively**
+4. **Measure multiple dimensions**
+5. **Iterate based on results**
+6. **Document evaluation process**
+7. **Version control prompts and tests**
 
 ## Advanced Techniques
 
