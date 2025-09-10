@@ -1,72 +1,144 @@
-# Command: /update-docs
-
-**Goal:** Review the most recent code changes and update all relevant project documentation to reflect them, incorporating user-provided suggestions.
-
-**Usage:** `/update-docs [optional suggested edits]`
-
-**Example:**
-`/update-docs The main change was adding the --n-train-images flag to run_comparison.sh. We should update its docstring and also create a new README in the scripts/studies/ directory to explain the new generalization study workflow.`
-
-**User's suggested changes and edits:**
-$ARGUMENTS
-
 ---
-## 🚀 **EXECUTION STRATEGY**
-
-**As the AI agent, follow this documentation update checklist precisely:**
-
-1.  **Identify Recent Changes & User Suggestions:**
-    *   First, check if the user provided any suggestions above (these came from the `/update-docs` command arguments).
-    *   If no arguments were provided, review the most recent code changes or ask the user: "What specific feature or change do I need to document?"
-2.  **Analyze Impact:** Based on the recent changes and the user's suggestions, analyze which parts of the project are affected.
-3.  **Systematically Review and Update Documentation:** Go through the checklist in the "DOCUMENTATION REVIEW CHECKLIST" section below. For each item, check if an update is needed, paying close attention to the user's suggestions. If an update is needed, perform it. If not, state that you've checked it and no changes were required.
-
+name: update-docs
+description: Update project documentation to match code changes
 ---
 
-## **DOCUMENTATION REVIEW CHECKLIST**
+Review code changes and ensure all project documentation is consistent with them, incorporating any user-provided suggestions.
 
-### **1. High-Level Project Guides**
+**Usage:** `/update-docs [optional guidance about what to document]`
 
-*   [ ] **`README.md` (Root Level):**
-    *   **Check:** Does the new feature change the primary installation or usage instructions? Is it a major new capability that should be highlighted in the overview?
-    *   **Action (if needed):** Update the "Usage" or "Features" sections.
+**Examples:**
+- `/update-docs` - Review staged changes and update docs automatically
+- `/update-docs Added new --verbose flag to main.py, need to update CLI docs`
+- `/update-docs The detector geometry fix changes the coordinate system conventions`
 
-*   [ ] **`docs/DEVELOPER_GUIDE.md`:**
-    *   **Check:** Does the change introduce a new architectural principle, a critical workflow, or a lesson learned (an "anti-pattern")? Does it affect the data pipeline or evaluation methods?
-    *   **Action (if needed):** Add a new section or update an existing one to reflect the new best practices or architectural components.
+**User guidance:** $ARGUMENTS
 
-*   [ ] **`CLAUDE.md`:**
-    *   **Check:** Does the change introduce a new core directive for the AI? Does it change how the AI should interact with the codebase or data formats?
-    *   **Action (if needed):** Add or update a directive. _e.g., "You MUST now use the `new_function()` for all evaluations."_
+## Prerequisites
+- Must be run from a git repository root
+- Works with either staged changes (`git diff --staged`) or recent commits
 
-### **2. Tool and Script Documentation**
+## Your Task
 
-*   [ ] **Script `README.md` Files:**
-    *   **Check:** Was a new script directory created (e.g., `scripts/studies/`)? Does it have a `README.md` explaining its purpose and workflow?
-    *   **Action (if needed):** Create or update the `README.md` for the relevant directory (e.g., `scripts/tools/README.md`, `scripts/studies/README.md`). Provide clear usage examples.
+1. **Identify what needs documenting**
+   - If user provided guidance above, follow their suggestions
+   - Otherwise, check staged changes with `git diff --staged`
+   - If no staged changes, review recent commits or ask user for clarification
+   - Identify which components/features are affected
 
-*   [ ] **Shell Script Header Comments:**
-    *   **Check:** Were any shell scripts (`.sh`) created or modified?
-    *   **Action (if needed):** Update the header comments in the script to explain its purpose, arguments, and provide up-to-date usage examples.
+2. **Review and update documentation**
+   Systematically check these documentation categories:
+   
+   ### High-Level Documentation
+   - **README.md**: Update if there are changes to:
+     - Major features or capabilities
+     - Installation or setup instructions
+     - Usage examples or commands
+     - Dependencies or requirements
+   
+   - **docs/architecture/README.md**: Update if there are:
+     - New architectural components
+     - Significant changes to existing components
+     - New or modified component relationships
+   
+   - **docs/DEVELOPER_GUIDE.md** (if exists): Update for:
+     - New architectural principles or patterns
+     - Critical workflows or best practices
+     - Lessons learned or anti-patterns to avoid
+     - Data pipeline or evaluation method changes
+   
+   - **CLAUDE.md**: Add or update if there are:
+     - New critical conventions or patterns
+     - Important "gotchas" or edge cases discovered
+     - New mandatory workflows for AI agents
+     - Changes to core implementation rules
+   
+   ### Component & Data Documentation
+   - **Component specifications** (docs/architecture/*.md): Update for:
+     - Changed function signatures or APIs
+     - Modified return values or data structures
+     - New or altered conventions
+     - Updated unit systems or coordinate systems
+   
+   - **docs/data_contracts.md** (if exists): Update for:
+     - New data formats or file types
+     - Changes to array shapes, types, or keys
+     - Modified data pipeline specifications
+   
+   ### Code-Level Documentation
+   - **Python docstrings**: For new/modified Python files:
+     - Module-level docstrings explaining purpose
+     - Function/class docstrings with Args:, Returns:, Raises:
+     - Usage examples where helpful
+   
+   - **Shell script headers**: For new/modified .sh files:
+     - Purpose and usage in header comments
+     - Document all arguments and options
+     - Provide example invocations
+   
+   - **Script README files**: For new script directories:
+     - Create README.md explaining the directory's purpose
+     - Document workflows and dependencies
+     - Provide clear usage examples
 
-### **3. Code-Level Documentation (Docstrings)**
+3. **Regenerate documentation index**
+   - Create or update `docs/index.md` with the current documentation structure
+   - Include all markdown files found in the documentation directories
+   - Organize by category (architecture, development, debugging, user guides, etc.)
+   - Maintain clear navigation hierarchy with relative links
+   - Include brief descriptions where helpful
 
-*   [ ] **Python Module Docstrings:**
-    *   **Check:** Were any new Python files (`.py`) created?
-    *   **Action (if needed):** Add a module-level docstring at the top of the new file explaining its overall purpose and the tools it provides.
+4. **Final consistency check**
+   - Review all documentation changes for consistency
+   - Ensure terminology is uniform across documents
+   - Verify examples align with actual code behavior
+   - Check that cross-references are valid
 
-*   [ ] **Function and Class Docstrings:**
-    *   **Check:** Were any new public functions or classes added or modified?
-    *   **Action (if needed):** Add or update the docstrings to clearly explain the purpose, arguments (`Args:`), return values (`Returns:`), and any errors raised (`Raises:`). Include a simple usage example if helpful.
+5. **Stage documentation changes**
+   - Stage all modified documentation files with `git add`
+   - Provide a clear summary of what was updated
+   - DO NOT stage non-documentation files
+   - DO NOT commit - only stage the changes
 
-### **4. Data Format Documentation**
+## Important Constraints
 
-*   [ ] **`docs/data_contracts.md`:**
-    *   **Check:** Did the changes introduce a new data format, add/remove keys from an NPZ file, or change the shape/type of any arrays?
-    *   **Action (if needed):** Update the data contracts document to reflect the new canonical format. This is a critical step.
+- Only modify documentation files (*.md, *.txt in docs/)
+- Preserve the existing documentation structure and style
+- Keep updates minimal and directly relevant to the staged changes
+- If no documentation updates are needed, clearly report that
+- Maintain consistency with existing documentation tone and format
+- Use relative links for internal documentation references
 
-### **5. Final Review**
+## Example Scenarios
 
-*   [ ] **Consistency Check:**
-    *   **Check:** Read through all the changes you've made. Is the terminology consistent? Do the examples in different documents align with each other?
-    *   **Action (if needed):** Correct any inconsistencies.
+**Scenario 1**: A new utility function is added
+- Add docstring to the function with Args:, Returns:
+- Check if it needs mentioning in component specs
+- Update affected usage examples in README if applicable
+
+**Scenario 2**: A core component's API changes
+- Update the component's specification in docs/architecture/
+- Update CLAUDE.md if there are new conventions
+- Update README if user-facing commands change
+- Update docstrings for all affected functions
+
+**Scenario 3**: Data format changes (e.g., new NPZ keys)
+- Update docs/data_contracts.md with new format
+- Update any scripts that generate/consume the data
+- Add migration notes if breaking change
+
+**Scenario 4**: New script directory created
+- Create README.md in the new directory
+- Document the workflow and purpose
+- Add shell script header comments
+
+**Scenario 5**: Bug fix with no API changes
+- Likely no documentation updates needed
+- Report that documentation is already consistent
+
+## Success Criteria
+
+✅ All relevant documentation reflects the staged code changes
+✅ Documentation index (docs/index.md) is current and complete
+✅ All documentation changes are staged for commit
+✅ Clear report of what was updated (or that no updates were needed)
