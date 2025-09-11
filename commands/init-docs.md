@@ -36,32 +36,18 @@ Verify that all standard project documentation files exist, and create any missi
    - `README.md` - Project overview and quick start
    - `CLAUDE.md` - AI agent instructions and conventions
    - `PROJECT_STATUS.md` - Current development status
-   - `CHANGELOG.md` - Version history and changes
-   - `CONTRIBUTING.md` - Contribution guidelines
-   - `LICENSE` - Legal terms
    
    **Architecture documentation:**
    - `docs/architecture/README.md` - Architecture hub and navigation
-   - `docs/architecture/pytorch_design.md` - PyTorch implementation design
-   - `docs/architecture/c_code_overview.md` - C code structure analysis
-   - `docs/architecture/c_parameter_dictionary.md` - Parameter mappings
-   - Component specifications for each major module
    
    **Development documentation:**
    - `docs/development/README.md` - Development hub
    - `docs/development/testing_strategy.md` - Test approach and validation
    - `docs/development/debugging.md` - Debugging workflows
-   - `docs/development/implementation_plan.md` - Development roadmap
-   - `docs/development/c_to_pytorch_config_map.md` - Configuration mappings
    
    **Data documentation:**
    - `docs/data_contracts.md` - Data format specifications
    - `docs/api_reference.md` - API documentation
-   
-   **User documentation:**
-   - `docs/user/installation.md` - Setup instructions
-   - `docs/user/quickstart.md` - Getting started guide
-   - `docs/user/tutorials/` - Tutorial directory
    
    **Project index:**
    - `docs/index.md` - Central documentation index
