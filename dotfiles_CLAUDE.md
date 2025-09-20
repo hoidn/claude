@@ -1,4 +1,4 @@
-# Development Guidelines
+ Guidelines
 
 ## Philosophy
 
@@ -15,14 +15,15 @@
 - Avoid premature abstractions
 - No clever tricks - choose the boring solution
 - If you need to explain it, it's too complex
+- KISS and YAGNI
 
 ## Process
 
 ### 1. Planning & Staging
 
-Break complex work into 3-5 stages. If the user doesn't specify an initiative workflow, checklist, or planning document(s) you should default to the following behavior:
+Break complex work into 3-5 stages. Think hard. If the user doesn't specify an initiative workflow, checklist, or planning document(s) you should default to the following behavior:
 <default planning workflow>
-Document in `IMPLEMENTATION_PLAN.md`:
+Document in a checklist:
 
 ```markdown
 ## Stage N: [Name]
@@ -32,7 +33,6 @@ Document in `IMPLEMENTATION_PLAN.md`:
 **Status**: [Not Started|In Progress|Complete]
 ```
 - Update status as you progress
-- Remove file when all stages are done
 </default planning workflow>
 
 ### 2. Implementation Flow
@@ -79,6 +79,7 @@ Document in `IMPLEMENTATION_PLAN.md`:
 
 - **Every commit must**:
   - Compile successfully
+  - Pass static checks (e.g. `pyrefly check src/`)
   - Pass all existing tests
   - Include tests for new functionality
   - Follow project formatting/linting
