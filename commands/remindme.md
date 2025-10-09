@@ -1,3 +1,4 @@
+- 'evidence only' behavior mode is still propagating to ralph. this i swrong. ralph should at least be able to write one off scripts (maybe also tests) when in that mode
 - add a repomix review prompt / sub-prompt to the galph / ralph workflow
 - galph / ralph treat codebase as too much of a black box. need a tracing / call chain following prompt / subagent that steps through the codebase from every relevant entry point and returns findings in a standard format 
 - try https://github.com/pchalasani/claude-code-tools/tree/main?tab=readme-ov-file#tmux-cli-bridging-claude-code-and-interactive-clis
