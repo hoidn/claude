@@ -1,3 +1,4 @@
+- write an aggent log summarization subagent that emphasises consistent structure and tracking changes in key files like claude.md
 - in galph, use wc character count (not lines) to decide whether fix_plan housekeeping is needed
 - 'evidence only' behavior mode is still propagating to ralph. this i swrong. ralph should at least be able to write one off scripts (maybe also tests) when in that mode
 - add a repomix review prompt / sub-prompt to the galph / ralph workflow
