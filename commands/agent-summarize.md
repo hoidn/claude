@@ -1,50 +1,79 @@
-Task: Generate missing markdown summaries for the last 30 iterations and interleave them.
+  Task: Using parallel subagents (one per missing role×iteration), generate markdown summaries for only the last 30 iterations that lack summaries, then interleave them. Do not write or propose any helper
+  scripts; use native LLM summarization in subagents and the file write tool only.
 
-  - Parameters:
-      - BRANCH_PREFIX: <fill in, e.g., feature-torchapi>
-      - COUNT: 30
-      - ROLES: galph, ralph
-      - MAX_CONCURRENCY: 8
+  Inputs:
 
-  Instructions:
+  - BRANCH_PREFIX: <your branch, e.g., integration>
+  - COUNT: 30
+  - ROLES: galph, ralph
+  - MAX_CONCURRENCY: 8
 
-  - Input discovery:
-      - Determine recent iterations by scanning raw logs under logs/<BRANCH_PREFIX>/galph/iter-*.log and logs/<BRANCH_PREFIX>/ralph/iter-*.log. Use the union of iteration numbers matched by
-        ^iter-(\d+)_.*\.log$, sort numerically, and take the last COUNT (30).
-      - For each role and each of those iterations, check for an existing summary in logs/<BRANCH_PREFIX>/<role>-summaries/ that matches ^iter-(\d+)_.*-summary\.md$. If a summary exists for that role+iter,
-        skip it.
-  - Output path and naming:
-      - For each missing summary, write a file to:
-          - logs/<BRANCH_PREFIX>/galph-summaries/iter-<NNNNN>_<YYYYMMDD_HHMMSS>-summary.md (for galph)
-          - logs/<BRANCH_PREFIX>/ralph-summaries/iter-<NNNNN>_<YYYYMMDD_HHMMSS>-summary.md (for ralph)
-      - Conventions:
-          - <NNNNN> is the zero‑padded 5‑digit iteration (e.g., 00041).
-          - Timestamp is UTC in YYYYMMDD_HHMMSS at the time of writing.
-          - Keep the -summary.md suffix exactly.
-          - Create the <role>-summaries directory if missing. Never overwrite existing files (idempotent).
-  - Summary content (Markdown):
-      - Keep it concise and factual for that single iteration. Include:
-          - Summary
-          - Key Actions
-          - Decisions/Rationales
-          - Errors/Failures (with suspected root causes)
-          - Evidence/Links (repo‑relative paths)
-          - Next Steps
-      - Prefer direct quotes or pointers to the raw log where helpful. Avoid speculation.
-  - Parallelization:
-      - Use parallel subagents to generate summaries concurrently (one worker per missing role×iteration), up to MAX_CONCURRENCY (e.g., 8). Ensure each worker writes a unique file; never race on the same
-        role×iter.
-  - Post‑step (interleave summaries):
-      - After all summaries are written, run:
-          - python -m scripts.orchestration.tail_interleave_logs <BRANCH_PREFIX> -n 30 --source summaries
-          - If the module form fails, fallback: python scripts/orchestration/tail_interleave_logs.py <BRANCH_PREFIX> -n 30 --source summaries
-      - Print the first ~40 lines of the interleaved output for verification.
-  - Deliverables:
-      - List of created files with role, iter, and full path.
-      - Counts: created vs skipped (already existed).
-      - Interleaver command used and a short snippet of its output.
-  - Constraints:
-      - Use only repository files and UTC timestamps.
-      - Do not modify existing summaries or raw logs.
-      - Be fully idempotent and safe to re‑run.
+  Rules:
+
+  - Absolutely no Python/Shell helper scripts or programmatic batching. If you start to write code, stop and ask me.
+  - Use parallel subagents: each subagent receives exactly one raw log file (role+iteration) and the naming conventions below, and outputs a single markdown file. Limit to MAX_CONCURRENCY workers.
+  - Be idempotent: never overwrite an existing summary; skip if present.
+  - Use UTC timestamps and exact naming conventions.
+
+  Discovery:
+
+  - Build the union of iteration numbers from raw logs:
+      - logs/<BRANCH_PREFIX>/galph/iter-*.log
+      - logs/<BRANCH_PREFIX>/ralph/iter-*.log
+  - Sort numerically and take the last COUNT (30).
+  - For each role×iteration in that set, if a summary exists under:
+      - logs/<BRANCH_PREFIX>/galph-summaries/iter-*-summary.md (galph)
+      - logs/<BRANCH_PREFIX>/ralph-summaries/iter-*-summary.md (ralph)
+        and matches the iteration number, skip. Otherwise, generate.
+
+  Naming/paths:
+
+  - Directories:
+      - logs/<BRANCH_PREFIX>/galph-summaries/
+      - logs/<BRANCH_PREFIX>/ralph-summaries/
+  - Filename pattern (exact):
+      - iter-<NNNNN>_<YYYYMMDD_HHMMSS>-summary.md
+      - <NNNNN> = zero‑padded 5‑digit iteration (e.g., 00041)
+      - Timestamp = current UTC at write time
+      - Suffix must be -summary.md
+  - If present, follow docs/logging/log_summary_conventions.md; otherwise, follow the above.
+
+  Subagent work spec (per item):
+
+  - Inputs: the single raw log file for that role×iteration + the naming conventions above.
+  - Output file: as per pattern into the correct <role>-summaries directory; create the directory if missing; do not overwrite.
+  - Content (markdown, concise and factual):
+      - Summary
+      - Key Actions
+      - Decisions/Rationales
+      - Errors/Failures and suspected root causes
+      - Evidence/Links (repo-relative paths)
+      - Next Steps
+  - Style: neutral, no speculation, cite concrete evidence from the log. You may quote small excerpts. Do not include unrelated content.
+
+  Execution:
+
+  - Coordinate subagents up to MAX_CONCURRENCY. Ensure no two subagents handle the same role×iteration.
+  - After all subagents finish, list:
+      - Created files (with role, iter, path)
+      - Skipped items (already existed)
+      - Totals: created vs skipped
+
+  Interleave (post-step):
+
+  - Run: python -m scripts.orchestration.tail_interleave_logs <BRANCH_PREFIX> -n 30 --source summaries
+  - If the module form fails, fallback: python scripts/orchestration/tail_interleave_logs.py <BRANCH_PREFIX> -n 30 --source summaries
+  - Show the first ~40 lines of output for verification.
+
+  Edge cases:
+
+  - If multiple branch prefixes exist under logs/, ask me to pick one.
+  - If a raw log is missing for a role×iteration, skip generating that specific summary and report it.
+  - If a summary already exists for an iteration (for that role), do not regenerate.
+
+  Deliverables:
+
+  - Created/Skipped counts and file list.
+  - The exact interleaver command used.
+  - A short snippet (first ~40 lines) of the interleaved output.
 
