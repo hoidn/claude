@@ -6,7 +6,7 @@
   - BRANCH_PREFIX: <your branch, e.g., integration>
   - COUNT: 30
   - ROLES: galph, ralph
-  - MAX_CONCURRENCY: 8
+  - MAX_CONCURRENCY: 30
 
   Rules:
 
