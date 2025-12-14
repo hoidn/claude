@@ -1,3 +1,5 @@
+- add dedicated plan / spec consistency sub prompts and have it invoked every N iterations
+- remove most of the 'required reading' from main.md and instead have the supervisor dynamically generate ralph's reading list 
 - write an aggent log summarization subagent that emphasises consistent structure and tracking changes in key files like claude.md
 - in galph, use wc character count (not lines) to decide whether fix_plan housekeeping is needed
 - 'evidence only' behavior mode is still propagating to ralph. this i swrong. ralph should at least be able to write one off scripts (maybe also tests) when in that mode
