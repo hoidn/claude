@@ -1,5 +1,6 @@
 - add dedicated plan / spec consistency sub prompts and have it invoked every N iterations. might need a mechanism for rolling back unreasonable gates / expectations. Add a spec consistency / improvement loop, maybe with an rfc.md output for when human feedback is needed. refer to concrete plan section in input.md (it already kind of does this but it isnt explicit)
 - "If it's really struggling, tell it to sketch out a full plan in pseudocode, and explain why that will work, and analyze for any gotchas. Then to analayze the differences between the current implementation and the ideal it just worked out. This often helps get it unblocked."
+- self reflection prompt: https://gist.github.com/a-c-m/f4cead5ca125d2eaad073dfd71efbcfc
 - remove most of the 'required reading' from main.md and instead have the supervisor dynamically generate ralph's reading list 
 - write an aggent log summarization subagent that emphasises consistent structure and tracking changes in key files like claude.md
 - in galph, use wc character count (not lines) to decide whether fix_plan housekeeping is needed
