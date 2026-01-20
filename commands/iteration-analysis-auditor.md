@@ -13,7 +13,7 @@ Configuration (project‑agnostic)
 
 - Iteration identification (fallback order; override via env or config):
   - Annotated git tags matching `iter-*` or `iteration-*` (e.g., `iter-12`).
-  - Commit subjects matching a regex (default: `\[SYNC i=(\d+)\]`).
+  - Commit subjects matching a regex (default: `(?:\[SYNC i=(\d+)\]|\biter=(\d+)\b)`).
   - Summary files matching `**/iter-*-summary.md` under known logs or report hubs.
   - Merge commits to the default branch as coarse iterations (last N).
 - Paths and globs (override via env/config; sensible defaults):
@@ -26,6 +26,7 @@ Configuration (project‑agnostic)
   - Excludes: `.git/**`, `tmp/**`, `data/**`, large artifacts (e.g., `*.png`, `*.h5`, `*.pt`).
 - Optional config file: `.claude/config/iteration_auditor.yml` with keys
   - `iteration_regex`, `tag_prefixes`, `prompt_files`, `source_globs`, `test_globs`, `script_globs`, `docs_globs`, `exclude_globs`.
+  - Default `iteration_regex`: `(?:\[SYNC i=(\d+)\]|\biter=(\d+)\b)`
 
 Inputs
 
@@ -60,6 +61,7 @@ Process
 
 2) Build the iteration timeline (project‑agnostic)
 - Prefer annotated tags with `iter-*`/`iteration-*`; otherwise parse commit subjects using `iteration_regex`.
+- Treat either `[SYNC i=NNN]` or `iter=NNN` as valid markers; when multiple commits share the same iteration ID, use the most recent commit on the default branch history.
 - If summaries exist (e.g., `**/iter-*-summary.md`), align their N with commit/tag boundaries.
 - When neither tags nor markers exist, approximate iterations as the last N merge commits into the default branch.
 - Create adjacent pairs `(i-1 → i)` as diff windows.
