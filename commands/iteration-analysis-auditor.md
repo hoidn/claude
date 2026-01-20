@@ -61,7 +61,7 @@ Process
 
 2) Build the iteration timeline (project‑agnostic)
 - Prefer annotated tags with `iter-*`/`iteration-*`; otherwise parse commit subjects using `iteration_regex`.
-- Treat either `[SYNC i=NNN]` or `iter=NNN` as valid markers; when multiple commits share the same iteration ID, use the most recent commit on the default branch history.
+- Treat either `[SYNC i=NNN]` or `iter=NNN` as valid markers; when multiple commits share the same iteration ID, use the most recent commit 
 - If summaries exist (e.g., `**/iter-*-summary.md`), align their N with commit/tag boundaries.
 - When neither tags nor markers exist, approximate iterations as the last N merge commits into the default branch.
 - Create adjacent pairs `(i-1 → i)` as diff windows.
